@@ -51,21 +51,24 @@ Sync the Project copy after merging to `main`.
 
 ## Status
 - Phase 1 Recon: **done** (2026-10-12).
-- Phase 2 Conceal: T1, T2 (PR #1) and T3 row model (PR #4) **merged**.
-- Phase 3 Virtual lines: T4 drawing + T5 vertical movement **merged** (PR #5). Single arrows
-  enter hidden source (revealing it); virtual rows can't hold a cursor.
-- Phase 4 Kanban plugin: T6 demos (PR #2) and **T7 kanban plugin (PR #3) merged**. Boards draw,
-  arrows enter them; on a card Alt-arrows move it (between/within columns), Alt-d toggles,
-  each one undo step (key scheme revised in PR, see COORDINATION log).
-- Phase 5 Polish: not started.
-- Upstream: issue/discussion not yet opened (do before Phase 2 PR).
+- Phase 2 Conceal: T1, T2 (PR #1), T3 row model (PR #4) **merged**.
+- Phase 3 Virtual lines: T4 drawing + T5 vertical movement (PR #5) **merged**.
+- Phase 4 Kanban plugin: T6 demos (PR #2), T7 kanban (PR #3), arrow keys + reordering (PR #6),
+  reveal margins / `kanban.margin` (PR #7) **merged**. Board works end to end on main.
+- Phase 5 Polish: in progress. First real Windows Terminal use (Marcus): ✔/☐ drawn ~2 cells
+  wide by the fallback font -> glyph padding option (PR open). Still to do: wide CJK/emoji
+  in cards, redraw on resize, T8 docs (fork README, plugin API help), perf on large files.
+- Upstream: not started. Needs a real GitHub fork of zyedidia/micro (veil-micro isn't one)
+  and a discussion before PRs.
 
 ## Open items
 - [x] Baseline + T1 build/test green on WSL (2026-10-12).
-- [ ] Open upstream discussion with API v0.3.
+- [ ] Open upstream discussion with API v0.4 (needs a real GitHub fork first).
 - [x] gopher-luar converts Lua tables → `[]string` (`TestDecorationsFromLua` passes).
 
 ## Handoff log (newest first; one or two lines each)
+- 2026-10-12 · chat (Claude) · PRs #6/#7 merged. Marcus's first Windows Terminal run: glyphs
+  looked squished -> `glyphpad` options (PR). Next: Phase 5 items above.
 - 2026-10-12 · chat (Claude) · Kanban keys reworked per Marcus: Alt-arrows + Alt-d with
   default-action fallback, in-column reordering, `kanban.keys` option. Opened as PR.
 - 2026-10-12 · chat (Claude) · Rebased + merged PR #3 (kanban) after PR #5. Phases 2-4 done.

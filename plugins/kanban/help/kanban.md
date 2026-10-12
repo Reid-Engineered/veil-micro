@@ -62,3 +62,13 @@ Disable the plugin with `set kanban off`.
 
 Borders use the `comment` colorscheme group, column titles and open
 checkboxes use `special`, and done cards use `comment`.
+
+## Glyph spacing
+
+Card marks (`✔`, `☐`, `•`) are followed by `kanban.glyphpad` extra spaces
+(default `1`). Many terminal fonts, including Windows Terminal's default
+Cascadia Mono, don't contain `✔`/`☐` and borrow them from a fallback font that
+draws them about two cells wide, covering the space after them. The extra space
+keeps card text clear of the glyph. If your font draws them one cell wide and
+the gap looks too big, `set kanban.glyphpad 0`. Open boards update immediately.
+

@@ -33,7 +33,7 @@ local function newBuf(path, text)
     function b:SetRevealMode() return true end
     function b:SetRevealMargin(g, n) self.margins[g] = n; return true end
     function b:ConcealLines(a, z, g) self.hidden[g] = true end
-    function b:SetVirtualLines() end
+    function b:SetVirtualLines(y, rows, g) self.rows = rows end
     function b:StyleVirtualLine() return true end
     return b
 end
@@ -71,6 +71,7 @@ end
 preinit()
 check("kanban.margin default is 1", options["kanban.margin"] == 1, options["kanban.margin"])
 check("kanban.keys default is on", options["kanban.keys"] == true)
+check("kanban.glyphpad default is 1", options["kanban.glyphpad"] == 1)
 
 local board = newBuf("/b.md", "```kanban\n## A\n- [ ] one\n## B\n```")
 curPane = view(board)
@@ -96,6 +97,19 @@ onBufferOpen(other)
 onBufferOptionChanged(board, "kanban.margin", 0, 3)
 onBufferOptionChanged(other, "kanban.margin", 0, 3)
 check("all open boards follow the setting", board.margins["kanban:1"] == 3 and other.margins["kanban:1"] == 3)
+
+------------------------------------------------------------------ set kanban.glyphpad
+local function cardRow(buf)
+    for _, r in ipairs(buf.rows or {}) do
+        if string.find(r, "☐", 1, true) then return r end
+    end
+end
+check("glyphpad default 1 pads the mark", string.find(cardRow(board) or "", "☐  one", 1, true) ~= nil, cardRow(board))
+options["kanban.glyphpad"] = 0
+onBufferOptionChanged(board, "kanban.glyphpad", 1, 0)
+check("set kanban.glyphpad 0 redraws open boards", string.find(cardRow(board) or "", "☐ one", 1, true) ~= nil, cardRow(board))
+options["kanban.glyphpad"] = 1
+onBufferOptionChanged(board, "kanban.glyphpad", 0, 1)
 
 ------------------------------------------------------------------ deinit / filetype
 deinit()

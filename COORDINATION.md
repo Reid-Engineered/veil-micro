@@ -84,6 +84,11 @@ Whoever needs a change in the other's region posts a request below.
 _(none)_
 
 ## Log
+- 2026-10-12T18:05-04:00 Glyph padding (Claude, chat, branch `agent-claude/glyph-padding`, files
+  `plugins/concealdemo/**`, `plugins/kanban/**`): Marcus saw ✔/☐ text "smushed" in Windows
+  Terminal (fallback-font glyphs ~2 cells wide over a 1-cell slot). Added `concealdemo.glyphpad`
+  and `kanban.glyphpad` (default 1 extra space; continuation lines re-aligned); option changes
+  redraw open buffers immediately.
 - 2026-10-12T17:50-04:00 Reveal margin (Claude, chat): fixed Codex's PR #7 P2. `set kanban.margin N`
   now redraws open boards (micro calls onBufferOptionChanged per buffer after a global set).
   New `spec/kanban_glue_spec.lua` drives the plugin glue with stand-in micro modules (startup

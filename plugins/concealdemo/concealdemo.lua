@@ -1,4 +1,4 @@
-VERSION = "0.2.1"
+VERSION = "0.3.0"
 
 -- concealdemo: renders markdown task checkboxes as glyphs using the veil
 -- decorations API.
@@ -52,10 +52,14 @@ function scan(buf)
         local s, e, mark = string.find(line, "^%s*[-*+] %[([ xX])%]")
         if s ~= nil then
             local indent = string.find(line, "[-*+]") - 1
+            -- Extra spaces after the glyph: fonts without ✔/☐ (e.g. Cascadia Mono)
+            -- get them from a fallback font that draws them ~2 cells wide, which
+            -- covers the following space and makes the text look glued on.
+            local gap = string.rep(" ", config.GetGlobalOption("concealdemo.glyphpad") or 0)
             if mark == " " then
-                buf:AddConceal(y, indent, e, "☐", "special", GROUP)
+                buf:AddConceal(y, indent, e, "☐" .. gap, "special", GROUP)
             else
-                buf:AddConceal(y, indent, e, "✔", "comment", GROUP)
+                buf:AddConceal(y, indent, e, "✔" .. gap, "comment", GROUP)
             end
         end
     end
@@ -122,6 +126,11 @@ local function enableFor(buf)
     end
 end
 
+function preinit()
+    -- extra spaces after ✔/☐ for fonts that draw them two cells wide
+    config.RegisterGlobalOption("concealdemo", "glyphpad", 1)
+end
+
 function init()
     enabled = true
     config.AddRuntimeFile("concealdemo", config.RTHelp, "help/concealdemo.md")
@@ -153,6 +162,11 @@ end
 
 -- Entering markdown turns the glyphs on; leaving it removes them.
 function onBufferOptionChanged(buf, option, old, new)
+    -- micro calls this for every open buffer after a global `set`
+    if option == "concealdemo.glyphpad" then
+        enableFor(buf)
+        return
+    end
     if option ~= "filetype" then
         return
     end

@@ -187,6 +187,22 @@ for i = 4, #rows - 1 do
     check("layout: wrapped row width", ulen(rows[i]) == ulen(rows[1]), rows[i])
 end
 
+-- glyph padding: one extra space after the mark, continuation aligned to the text
+local padb = findBoards(split("```kanban\n## A\n- [ ] first card wraps onto a second line here\n- [x] done\n```"))[1]
+local prow = layout(padb, 40, 1)
+check("pad: todo mark followed by two spaces", string.find(prow[4], "☐  first", 1, true) ~= nil, prow[4])
+local textcol = string.find(prow[4], "first", 1, true)
+local contcol = string.find(prow[5], "%S", string.find(prow[5], "│", 1, true) + 3)
+check("pad: continuation aligned with card text", ulen(string.sub(prow[5], 1, contcol - 1)) == ulen(string.sub(prow[4], 1, textcol - 1)),
+    prow[4] .. " / " .. prow[5])
+local doneRow
+for _, r in ipairs(prow) do if string.find(r, "✔", 1, true) then doneRow = r end end
+check("pad: done mark padded", doneRow ~= nil and string.find(doneRow, "✔  done", 1, true) ~= nil, doneRow)
+local same2 = true
+for _, r in ipairs(prow) do if ulen(r) ~= ulen(prow[1]) then same2 = false end end
+check("pad: rows still equal width", same2)
+check("pad 0 is the old layout", string.find(layout(padb, 40, 0)[4], "☐ first", 1, true) ~= nil)
+
 ------------------------------------------------------------------ moveCard
 boards = findBoards(obsidian)
 local e = moveCard(obsidian, boards[1], 1, 1, 1) -- "write parser" -> Doing
