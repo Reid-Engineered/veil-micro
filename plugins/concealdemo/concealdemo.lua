@@ -1,4 +1,4 @@
-VERSION = "0.2.1"
+VERSION = "0.3.0"
 
 -- concealdemo: renders markdown task checkboxes as glyphs using the veil
 -- decorations API.
@@ -36,6 +36,12 @@ local function key(buf)
     return buf.AbsPath
 end
 
+-- concealdemo.glyphpad as a small non-negative integer
+local function glyphPad()
+    local n = math.floor(tonumber(config.GetGlobalOption("concealdemo.glyphpad")) or 0)
+    return math.max(0, math.min(n, 8))
+end
+
 -- Conceal "- [x]" / "* [ ]" / "+ [X]" (after any indentation) on every line.
 -- The matched prefix is plain ASCII, so Lua's byte offsets equal micro's
 -- character columns here. A general plugin would have to convert.
@@ -52,10 +58,14 @@ function scan(buf)
         local s, e, mark = string.find(line, "^%s*[-*+] %[([ xX])%]")
         if s ~= nil then
             local indent = string.find(line, "[-*+]") - 1
+            -- Extra spaces after the glyph: fonts without ✔/☐ (e.g. Cascadia Mono)
+            -- get them from a fallback font that draws them ~2 cells wide, which
+            -- covers the following space and makes the text look glued on.
+            local gap = string.rep(" ", glyphPad())
             if mark == " " then
-                buf:AddConceal(y, indent, e, "☐", "special", GROUP)
+                buf:AddConceal(y, indent, e, "☐" .. gap, "special", GROUP)
             else
-                buf:AddConceal(y, indent, e, "✔", "comment", GROUP)
+                buf:AddConceal(y, indent, e, "✔" .. gap, "comment", GROUP)
             end
         end
     end
@@ -122,7 +132,19 @@ local function enableFor(buf)
     end
 end
 
+-- Idempotent, keeps an existing value; called from preinit() and init()
+-- because a plugin enabled mid-session (`set concealdemo on`) only gets init().
+local function registerOptions()
+    -- extra spaces after ✔/☐ for fonts that draw them two cells wide
+    config.RegisterGlobalOption("concealdemo", "glyphpad", 1)
+end
+
+function preinit()
+    registerOptions()
+end
+
 function init()
+    registerOptions()
     enabled = true
     config.AddRuntimeFile("concealdemo", config.RTHelp, "help/concealdemo.md")
     -- Startup opens the initial buffers before init(), and `set concealdemo on`
@@ -153,6 +175,11 @@ end
 
 -- Entering markdown turns the glyphs on; leaving it removes them.
 function onBufferOptionChanged(buf, option, old, new)
+    -- micro calls this for every open buffer after a global `set`
+    if option == "concealdemo.glyphpad" then
+        enableFor(buf)
+        return
+    end
     if option ~= "filetype" then
         return
     end

@@ -297,7 +297,11 @@ local STYLE_DONE = "comment"
 
 -- Returns rows (list of strings) and spans (list of {row, s, e, style}, row
 -- 0-based, columns in characters, e exclusive or -1 for end of row).
-function layout(board, width)
+-- `markPad` adds spaces after a card's ✔/☐/• mark (default 0). Some terminal fonts
+-- lack these symbols and draw them from a fallback font about two cells wide,
+-- spilling over the next cell; a padding space keeps the text clear of it.
+function layout(board, width, markPad)
+    markPad = math.max(0, math.floor(tonumber(markPad) or 0))
     local cols = board.columns
     local n = #cols
     -- each column: │ + space + content + space ; plus one closing │
@@ -308,24 +312,29 @@ function layout(board, width)
         content = MAX_CONTENT
     end
     local inner = content + 2
+    -- keep at least one character of card text per line: mark (1) + gap
+    -- (1 + markPad) + text (>= 1) must fit in `content`
+    markPad = math.min(markPad, content - 3)
 
     -- per-column cell lines: { text = ..., kind = "todo"|"done"|"plain"|"cont-..." }
     local cells, height = {}, 0
     for i, c in ipairs(cols) do
         local list = {}
         for _, k in ipairs(c.cards) do
-            local mark, kind = "• ", "plain"
+            local gap = string.rep(" ", 1 + markPad)
+            local mark, kind = "•" .. gap, "plain"
             if k.done == true then
-                mark, kind = "✔ ", "done"
+                mark, kind = "✔" .. gap, "done"
             elseif k.done == false then
-                mark, kind = "☐ ", "todo"
+                mark, kind = "☐" .. gap, "todo"
             end
-            local wrapped = wrap(k.text, content - 2)
+            local indent = string.rep(" ", 2 + markPad) -- continuation lines align with the text
+            local wrapped = wrap(k.text, content - 2 - markPad)
             for j, w in ipairs(wrapped) do
                 if j == 1 then
                     table.insert(list, { text = mark .. w, kind = kind, first = true })
                 else
-                    table.insert(list, { text = "  " .. w, kind = kind, first = false })
+                    table.insert(list, { text = indent .. w, kind = kind, first = false })
                 end
             end
         end
@@ -621,7 +630,7 @@ function scan(buf)
         -- the board, so stepping one line off it doesn't redraw it immediately
         buf:SetRevealMargin(g, config.GetGlobalOption("kanban.margin"))
         buf:ConcealLines(b.first, b.last, g)
-        local rows, spans = layout(b, width)
+        local rows, spans = layout(b, width, config.GetGlobalOption("kanban.glyphpad"))
         buf:SetVirtualLines(b.first, rows, g)
         for _, sp in ipairs(spans) do
             buf:StyleVirtualLine(b.first, sp[1], sp[2], sp[3], sp[4], g)
@@ -779,14 +788,23 @@ local function enableFor(buf)
     end
 end
 
-function preinit()
-    -- registered in preinit so a value in settings.json is applied before init()
+-- RegisterGlobalOption is idempotent and keeps a value already set (e.g. from
+-- settings.json), so this runs from both preinit() and init(): a plugin that
+-- starts disabled and is enabled later (`set kanban on`) only gets init().
+local function registerOptions()
     config.RegisterGlobalOption("kanban", "keys", true)
     -- lines around a board that still count as "in" it (0 = only its own lines)
     config.RegisterGlobalOption("kanban", "margin", 1)
+    -- extra spaces after card marks, for fonts that draw ✔/☐ two cells wide
+    config.RegisterGlobalOption("kanban", "glyphpad", 1)
+end
+
+function preinit()
+    registerOptions()
 end
 
 function init()
+    registerOptions()
     enabled = true
     config.MakeCommand("kanban", command, config.NoComplete)
     if config.GetGlobalOption("kanban.keys") then
@@ -816,9 +834,9 @@ function onBufferOpen(buf)
 end
 
 function onBufferOptionChanged(buf, option, old, new)
-    -- `set kanban.margin N` updates the global value, then calls this for every
-    -- open buffer: redraw so existing boards pick up the new margin now.
-    if option == "kanban.margin" then
+    -- `set kanban.margin N` (or glyphpad) updates the global value, then calls
+    -- this for every open buffer: redraw so existing boards update now.
+    if option == "kanban.margin" or option == "kanban.glyphpad" then
         enableFor(buf)
         return
     end
