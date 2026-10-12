@@ -18,7 +18,7 @@ Merge to `main` only via small reviewed merges, rebased on `main` first.
 |----|------|-------|--------|---------------|--------|---------|
 | T0 | Phase 1 recon, plan, API draft, PROJECT.md | recon | — | `PLAN.md`, `docs/API.md`, `COORDINATION.md`, `PROJECT.md` | done | 2026-10-12T12:30-04:00 |
 | T1 | Decoration storage + edit semantics + Buffer API methods | A (Claude, chat) | `agent-a/decorations-core` | `internal/buffer/decorations.go`, `decorations_test.go` (new), `internal/buffer/line_array.go`, `internal/config/settings.go`, `runtime/help/options.md` | **done — merged to main (review waived by Marcus)** | 2026-10-12T12:20-04:00 |
-| T2 | Conceal rendering + reveal-on-cursor + horizontal mapping | Codex (assigned by Marcus) | `agent-codex/conceal-render` | `internal/display/bufwindow.go` (glyph loop, `getStartInfo`, `LocFromVisual`, minimal prerequisite skeleton), `internal/display/conceal.go`, `internal/display/conceal_test.go` (new) | in progress | 2026-10-12T12:42:27-04:00 |
+| T2 | Conceal rendering + reveal-on-cursor + horizontal mapping | Codex (assigned by Marcus) | `agent-codex/conceal-render` | `internal/display/bufwindow.go` (glyph loop, `getStartInfo`, `LocFromVisual`, minimal prerequisite skeleton), `internal/display/conceal.go`, `internal/display/conceal_test.go` (new) | done — implementation tested; review and T3 integration pending | 2026-10-12T12:42:27-04:00 |
 | T3 | Row model: hidden lines + virtual rows in scroll/diff/mapping | B | `agent-b/rows` | `internal/display/softwrap.go` | open | |
 | T4 | Virtual-row drawing + gutter | B | `agent-b/vlines-render` | `internal/display/bufwindow.go` (row loop / `wrap()` / gutter helpers, `Relocate`) | blocked by T1, T3 | |
 | T5 | Cursor up/down + mouse over virtual/hidden rows | B | `agent-b/cursor-move` | `internal/action/actions.go` (`MoveCursorUp/Down`, mouse handlers) | blocked by T3 | |
@@ -37,7 +37,15 @@ Whoever needs a change in the other's region posts a request below.
 - 2026-10-12T12:42:27-04:00 T2 (Codex): Marcus authorized preparing the minimal T4
   drawing skeleton prerequisite for T2. No virtual-row implementation or changes
   to B's `softwrap.go`, `Relocate`, gutter or action ownership are claimed.
-  Shared conceal iterator/width helpers will be provided for T3/T4.
+  The prerequisite is commit `593db04f`: shared `drawRowGutter` plus a nil
+  `concealAt` hook, followed by T2's implementation in the next commit.
+- T3/T4 handoff: use `concealGlyphs(line)` (`nil` means the raw fast path; an
+  empty non-nil slice means no displayed characters), `displayGlyph` source
+  `col/end` + `visualX/width`, and `decorationSuppressed(line, group)`. Synthetic
+  replacement glyphs map to their source start and bypass cursor/selection styling.
+  Preserve the same tab/wordwrap rules as `displayBuffer`. T2 supplies non-softwrap
+  horizontal hit testing; B still owns wrapped row counts, scrolling and mapping.
+  Until T3 consumes these helpers, wrapped navigation uses the raw-text row model.
 
 ## API changes
 - 2026-10-12 v0.2 (approved by Marcus): rune columns confirmed; `ConcealLines` confirmed;
@@ -52,6 +60,15 @@ Whoever needs a change in the other's region posts a request below.
 _(none)_
 
 ## Log
+- 2026-10-12T12:54:42-04:00 T2 (Codex): implemented off-by-default conceal glyph rendering,
+  theme styles, window-local cursor/selection/group reveal, concealed horizontal
+  starts and non-softwrap clicks; no Lua API or T1 storage changes. `make build`,
+  `make test`, uncached internal/cmd tests and display race tests pass on WSL.
+  Added 12 display tests, including 80 drawing comparisons against substituted
+  ordinary text and 40 Unicode/tab width cases. Minimal drawing prerequisite was
+  explicitly authorized by Marcus; T3/T4/action files remain under B's ownership.
+  Awaiting independent review. Not merged to main, pushed, or installed as micro-dev.
+  Real Windows Terminal behavior and wrapped navigation after T3 remain unverified.
 - 2026-10-12 12:35 T1 merged to `main` (fast-forward). Marcus waived the review for T1.
   T2 and T3 are now unblocked.
 - 2026-10-12 12:31 T1: `go build ./...` + `go test ./internal/...` green on Marcus's WSL box.

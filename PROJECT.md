@@ -52,7 +52,9 @@ Sync the Project copy after merging to `main`.
 ## Status
 - Phase 1 Recon: **done** (2026-10-12).
 - Phase 2 Conceal: **T1 (storage + API) merged to main** (2026-10-12).
-  Next: T2 (conceal render) and T3 (row model) in parallel.
+  T2 (conceal render): implemented and tested on `agent-codex/conceal-render`;
+  awaiting independent review. T3 must consume its shared glyph/reveal helpers
+  for conceal-aware wrapped row counts, scrolling and hit testing.
 - Phase 3 Virtual lines: not started (T3 unblocked).
 - Phase 4 Kanban plugin: not started (can stub against API.md).
 - Phase 5 Polish: not started.
@@ -64,6 +66,8 @@ Sync the Project copy after merging to `main`.
 - [x] gopher-luar converts Lua tables → `[]string` (`TestDecorationsFromLua` passes).
 
 ## Handoff log (newest first; one or two lines each)
+- 2026-10-12 · Codex (T2) · Conceal drawing/reveal/horizontal clicks implemented;
+  standard build/tests + display race tests pass. Review, then B's T3 integration.
 - 2026-10-12 · chat (Claude, agent A) · Merged T1 to main (review waived). T2/T3 open.
 - 2026-10-12 · chat (Claude, agent A) · T1 tests green on WSL. Repo seeded on GitHub
   (Reid-Engineered/veil-micro). Next: review T1, merge, start T2/T3.
