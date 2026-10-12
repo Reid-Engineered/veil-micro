@@ -1,4 +1,4 @@
-VERSION = "0.2.0"
+VERSION = "0.2.1"
 
 -- concealdemo: renders markdown task checkboxes as glyphs using the veil
 -- decorations API.
@@ -112,8 +112,10 @@ local function scheduleRescan(buf)
     end)
 end
 
+-- Enabling never registers: init() iterates `tracked`, and registering
+-- here would append to the list being iterated (an unnamed buffer can't be
+-- deduplicated, so the loop would never end).
 local function enableFor(buf)
-    track(buf)
     if enabled and isMarkdown(buf) then
         buf:SetOptionNative("conceal", true)
         scan(buf)
@@ -123,8 +125,14 @@ end
 function init()
     enabled = true
     config.AddRuntimeFile("concealdemo", config.RTHelp, "help/concealdemo.md")
-    -- re-enabling with `set concealdemo on`: restore already-open buffers
-    for _, b in ipairs(tracked) do
+    -- Startup opens the initial buffers before init(), and `set concealdemo on`
+    -- calls init() again: restore glyphs on buffers we already know about.
+    -- Iterate a snapshot so nothing that runs here can grow the loop.
+    local snapshot = {}
+    for i, b in ipairs(tracked) do
+        snapshot[i] = b
+    end
+    for _, b in ipairs(snapshot) do
         enableFor(b)
     end
 end
@@ -137,7 +145,9 @@ function deinit()
     end
 end
 
+-- The only place buffers are registered, so each open adds one entry.
 function onBufferOpen(buf)
+    track(buf)
     enableFor(buf)
 end
 
@@ -146,7 +156,6 @@ function onBufferOptionChanged(buf, option, old, new)
     if option ~= "filetype" then
         return
     end
-    track(buf)
     if new == "markdown" then
         enableFor(buf)
     elseif old == "markdown" then

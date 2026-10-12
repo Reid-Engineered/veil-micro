@@ -64,6 +64,11 @@ Whoever needs a change in the other's region posts a request below.
 _(none)_
 
 ## Log
+- 2026-10-12T14:25-04:00 T6 (Claude, chat): fixed Codex's follow-up P1 (infinite loop when an
+  unnamed buffer is open before `init()`): buffers are registered only in `onBufferOpen`, and
+  `init()` iterates a snapshot. Verified in a Lua harness (fengari, stubbed micro modules):
+  the previous commit hangs on startup-order + unnamed buffer; the fix passes startup,
+  disable/re-enable, filetype changes, focus-change rescan and no-restore-after-disable.
 - 2026-10-12T14:15-04:00 T6 (Claude, chat): addressed Codex's PR #2 review: `vlinebox` args
   via Go `strings.Join` (P1 crash); concealdemo clears its group on `deinit` and when a
   buffer leaves markdown, guards pending rescans, and debounces per buffer, resolving the
