@@ -18,11 +18,11 @@ Merge to `main` only via small reviewed merges, rebased on `main` first.
 |----|------|-------|--------|---------------|--------|---------|
 | T0 | Phase 1 recon, plan, API draft, PROJECT.md | recon | — | `PLAN.md`, `docs/API.md`, `COORDINATION.md`, `PROJECT.md` | done | 2026-10-12T12:30-04:00 |
 | T1 | Decoration storage + edit semantics + Buffer API methods | A (Claude, chat) | `agent-a/decorations-core` | `internal/buffer/decorations.go`, `decorations_test.go` (new), `internal/buffer/line_array.go`, `internal/config/settings.go`, `runtime/help/options.md` | **done — merged to main (review waived by Marcus)** | 2026-10-12T12:20-04:00 |
-| T2 | Conceal rendering + reveal-on-cursor + horizontal mapping | Codex (assigned by Marcus) | `agent-codex/conceal-render` | `internal/display/bufwindow.go` (glyph loop, `getStartInfo`, `LocFromVisual`, minimal prerequisite skeleton), `internal/display/conceal.go`, `internal/display/conceal_test.go` (new) | done — Claude review fixes tested; merge and T3 integration pending | 2026-10-12T12:42:27-04:00 |
+| T2 | Conceal rendering + reveal-on-cursor + horizontal mapping | Codex (assigned by Marcus) | `agent-codex/conceal-render` | `internal/display/bufwindow.go` (glyph loop, `getStartInfo`, `LocFromVisual`, minimal prerequisite skeleton), `internal/display/conceal.go`, `internal/display/conceal_test.go` (new) | **done — merged to main as PR #1**; T3 integration pending | 2026-10-12T12:42:27-04:00 |
 | T3 | Row model: hidden lines + virtual rows in scroll/diff/mapping | B | `agent-b/rows` | `internal/display/softwrap.go` | open | |
 | T4 | Virtual-row drawing + gutter | B | `agent-b/vlines-render` | `internal/display/bufwindow.go` (row loop / `wrap()` / gutter helpers, `Relocate`) | blocked by T1, T3 | |
 | T5 | Cursor up/down + mouse over virtual/hidden rows | B | `agent-b/cursor-move` | `internal/action/actions.go` (`MoveCursorUp/Down`, mouse handlers) | blocked by T3 | |
-| T6 | Test plugins (`- [x]`→`✔`, box below a line) | C | `agent-c/test-plugins` | `runtime/plugins/concealdemo/`, `runtime/plugins/vlinedemo/` | open (stub against API.md) | |
+| T6 | Test plugins (`- [x]`→`✔`, box below a line) | Claude (chat) | `agent-claude/test-plugins` | `plugins/` (new top-level dir: `concealdemo/`, `vlinedemo/`, `install-dev.sh`, `README.md`) | in review (PR) | 2026-10-12T13:41-04:00 |
 | T7 | Kanban plugin | C | `agent-c/kanban` | `runtime/plugins/kanban/` | open (stub against API.md) | |
 | T8 | Docs: help page + fork README | C | `agent-c/docs` | `runtime/help/plugins.md` (append section), `README.fork.md` | open | |
 
@@ -64,6 +64,22 @@ Whoever needs a change in the other's region posts a request below.
 _(none)_
 
 ## Log
+- 2026-10-12T14:25-04:00 T6 (Claude, chat): fixed Codex's follow-up P1 (infinite loop when an
+  unnamed buffer is open before `init()`): buffers are registered only in `onBufferOpen`, and
+  `init()` iterates a snapshot. Verified in a Lua harness (fengari, stubbed micro modules):
+  the previous commit hangs on startup-order + unnamed buffer; the fix passes startup,
+  disable/re-enable, filetype changes, focus-change rescan and no-restore-after-disable.
+- 2026-10-12T14:15-04:00 T6 (Claude, chat): addressed Codex's PR #2 review: `vlinebox` args
+  via Go `strings.Join` (P1 crash); concealdemo clears its group on `deinit` and when a
+  buffer leaves markdown, guards pending rescans, and debounces per buffer, resolving the
+  edited buffer at edit time (P2s); README and PLAN.md §0 now build with `make build`
+  (bare `go build` skips `go generate`, so `.md` opens as `unknown`). Lua syntax-checked;
+  needs a re-run of Codex's runtime repro.
+- 2026-10-12T13:50-04:00 T6 (Claude, chat): demo plugins moved from `runtime/plugins/` to a
+  top-level `plugins/` dir, because everything under `runtime/plugins/` is embedded in the
+  binary and enabled by default for all users. `plugins/install-dev.sh` installs them into
+  `~/.config/micro-dev/plug` only. Lua syntax-checked; not run in micro (no Go build in the
+  chat sandbox). `vlinedemo` draws nothing until T3/T4 land. T7 should also live in `plugins/`.
 - 2026-10-12T13:32:37-04:00 T2 review follow-up (Codex): addressed Claude's three
   requested fixes in PR #1: removed unused `concealAt`, documented T3/T4
   use of `decorationSuppressed`, restored upstream wrap condition, corrected

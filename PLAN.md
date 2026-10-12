@@ -15,7 +15,7 @@ git clone git@github.com:<you>/micro.git && cd micro      # your fork, on the Li
 git remote add upstream https://github.com/zyedidia/micro.git
 
 # baseline: must be green before anyone writes feature code
-go build -o ~/.local/bin/micro-dev ./cmd/micro
+make build && install -m 755 micro ~/.local/bin/micro-dev   # make build runs go generate first (syntax headers)
 go test ./internal/...
 
 # per-agent worktrees
