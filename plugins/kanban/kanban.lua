@@ -17,7 +17,7 @@ VERSION = "0.1.0"
 -- the next / previous column, Alt-t toggles done. Same as `kanban right|left|toggle`.
 --
 -- Everything up to the "micro glue" section is plain Lua with no micro calls,
--- so it can be tested outside the editor (see test/kanban_spec.lua).
+-- so it can be tested outside the editor (see spec/kanban_spec.lua).
 
 ------------------------------------------------------------------------------
 -- UTF-8 helpers (Lua 5.1 has no utf8 library; count non-continuation bytes)
@@ -167,6 +167,29 @@ local function contentEnd(columns)
     return last
 end
 
+-- If line opens a code fence, return the fence run (e.g. "````") and the
+-- first word of its info string.
+function fenceOpen(line)
+    local run, rest = string.match(line, "^%s*(```+)(.*)$")
+    if run == nil then
+        run, rest = string.match(line, "^%s*(~~~+)(.*)$")
+    elseif string.find(rest, "`", 1, true) then
+        return nil -- backtick fences can't have backticks in the info string
+    end
+    if run == nil then
+        return nil
+    end
+    return run, (string.match(rest, "^%s*(%S*)") or "")
+end
+
+-- Does line close a fence opened with `fence`? Same character, at least as
+-- long, nothing else on the line.
+function fenceCloses(line, fence)
+    local ch = string.sub(fence, 1, 1)
+    local run = string.match(line, "^%s*(" .. (ch == "`" and "`" or "~") .. "+)%s*$")
+    return run ~= nil and #run >= #fence
+end
+
 -- Find every board in a file.
 -- Returns a list of { kind, first, last, columns } where [first, last] are the
 -- 0-based lines to hide (fences included for fenced boards).
@@ -207,27 +230,32 @@ function findBoards(lines)
         end
     end
 
-    -- fenced ```kanban blocks
+    -- fenced ```kanban blocks. Every code fence is tracked (CommonMark rules:
+    -- ``` or ~~~ runs of 3+, closed by a run of the same character at least
+    -- as long), so a ```kanban example inside another code fence stays text.
     local y = 0
     while y < n do
-        if string.find(lines[y + 1], "^%s*```%s*kanban%s*$") then
+        local fence, info = fenceOpen(lines[y + 1])
+        if fence == nil then
+            y = y + 1
+        else
             local close = nil
             for z = y + 1, n - 1 do
-                if string.find(lines[z + 1], "^%s*```%s*$") then
+                if fenceCloses(lines[z + 1], fence) then
                     close = z
                     break
                 end
             end
             if close == nil then
-                break -- unterminated fence: not a board (yet)
+                break -- unterminated fence runs to the end of the file
             end
-            local columns = parseColumns(lines, y + 1, close - 1)
-            if #columns > 0 then
-                table.insert(boards, { kind = "fence", first = y, last = close, columns = columns })
+            if info == "kanban" then
+                local columns = parseColumns(lines, y + 1, close - 1)
+                if #columns > 0 then
+                    table.insert(boards, { kind = "fence", first = y, last = close, columns = columns })
+                end
             end
             y = close + 1
-        else
-            y = y + 1
         end
     end
     return boards
@@ -446,6 +474,39 @@ function toggleCard(lines, board, ci, ki)
     return { lo = card.line, hi = card.line, lines = { new }, cursor = card.line }
 end
 
+-- Turn an edit into one replacement per changed line. Moves and toggles never
+-- change the line count, so every delta is single-line. micro's MultipleReplace
+-- applies all deltas as ONE undo event; a plain Replace would be a Remove plus
+-- an Insert, which undo may split across its one-second grouping, and micro's
+-- replace event assumes single-line text when it records the undo range.
+-- Returns a list of { y, old, new } (0-based line numbers).
+function editLines(lines, edit)
+    local out = {}
+    for i, new in ipairs(edit.lines) do
+        local y = edit.lo + i - 1
+        local old = lines[y + 1]
+        if old ~= new then
+            table.insert(out, { y = y, old = old, new = new })
+        end
+    end
+    return out
+end
+
+-- Apply an edit to a micro buffer as a single MultipleReplace (one undo
+-- event), see editLines. `loc` builds a buffer.Loc; it's a parameter so tests
+-- can call this without the micro modules.
+function applyEdit(buf, lines, edit, loc)
+    local deltas = {}
+    for _, d in ipairs(editLines(lines, edit)) do
+        -- End past the line's last character is clamped by micro; byte length
+        -- is always >= the character count.
+        table.insert(deltas, { Text = d.new, Start = loc(0, d.y), End = loc(#d.old, d.y) })
+    end
+    if #deltas > 0 then
+        buf:MultipleReplace(deltas)
+    end
+end
+
 ------------------------------------------------------------------------------
 -- micro glue. Nothing above this line calls into micro.
 ------------------------------------------------------------------------------
@@ -464,7 +525,10 @@ local DEFAULT_WIDTH = 80
 local enabled = false
 local tracked = {}       -- buffers seen in onBufferOpen (see concealdemo for why)
 local pending = {}       -- per-buffer debounce generation
-local groupsDrawn = {}   -- buffer path -> number of "kanban:N" groups last drawn
+-- Highest number of boards ever drawn in any buffer. Cleanup clears groups
+-- kanban:1..maxGroups, so it never depends on knowing which buffer drew what
+-- (unnamed buffers all share AbsPath "", so per-path bookkeeping is wrong).
+local maxGroups = 0
 
 local function isMarkdown(buf)
     return buf.Settings["filetype"] == "markdown"
@@ -479,11 +543,9 @@ local function bufLines(buf)
 end
 
 local function clearBoards(buf)
-    local n = groupsDrawn[buf.AbsPath] or 0
-    for i = 1, n do
+    for i = 1, maxGroups do
         buf:ClearDecorations("kanban:" .. i)
     end
-    groupsDrawn[buf.AbsPath] = 0
 end
 
 local function widthFor(buf)
@@ -521,7 +583,9 @@ function scan(buf)
             buf:StyleVirtualLine(b.first, sp[1], sp[2], sp[3], sp[4], g)
         end
     end
-    groupsDrawn[buf.AbsPath] = #boards
+    if #boards > maxGroups then
+        maxGroups = #boards
+    end
 end
 
 local function track(buf)
@@ -568,12 +632,8 @@ local function scheduleRescan(buf)
     end)
 end
 
--- Apply an edit computed above as one replacement (one undo step).
-local function apply(bp, edit)
-    local buf = bp.Buf
-    local lastLine = buf:Line(edit.hi)
-    local endLoc = buffer.Loc(string.len(lastLine) + 1, edit.hi) -- clamped to line end
-    buf:Replace(buffer.Loc(0, edit.lo), endLoc, table.concat(edit.lines, "\n"))
+local function apply(bp, lines, edit)
+    applyEdit(bp.Buf, lines, edit, buffer.Loc)
     bp.Cursor:GotoLoc(buffer.Loc(0, edit.cursor))
     bp:Relocate()
 end
@@ -596,7 +656,7 @@ local function withCard(bp, fn)
         micro.InfoBar():Message("kanban: " .. err)
         return true
     end
-    apply(bp, edit)
+    apply(bp, lines, edit)
     return true
 end
 

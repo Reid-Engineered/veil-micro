@@ -28,13 +28,14 @@ Inside micro-dev, `help concealdemo` and `help vlinedemo` show usage.
 ## Tests
 
 Plugin logic that doesn't need the editor lives in pure Lua functions and is
-tested by `*_spec.lua` files under each plugin's `test/` folder, run through
-gopher-lua (the Lua micro embeds):
+tested by `*_spec.lua` files under each plugin's `spec/` folder, run through
+gopher-lua (the Lua micro embeds). kanban's Go test also drives a real micro
+buffer to check that a card move is exactly one undo event:
 
 ```bash
 go test ./plugins/...
 ```
 
-Specs live in `test/` because micro loads every top-level `.lua` file in a
-plugin folder.
+Specs live in `spec/` because micro loads every top-level `.lua` file in a
+plugin folder, and because the repo's `.gitignore` ignores any `test/` directory.
 
