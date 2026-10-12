@@ -57,6 +57,10 @@ type Line struct {
 	// which have distinct searches, so in the general case there are multiple
 	// searches per a line, one search per a Buffer containing this line.
 	search map[*Buffer]*searchState
+
+	// Display-only decorations (conceals, hidden flag, virtual rows), see
+	// decorations.go. Nil for undecorated lines.
+	deco *lineDeco
 }
 
 const (
@@ -75,6 +79,10 @@ type LineArray struct {
 	Endings  FileFormat
 	initsize uint64
 	lock     sync.Mutex
+
+	// decoration state, see decorations.go
+	decoActive  bool
+	revealModes map[string]RevealMode
 }
 
 // Append efficiently appends lines together
@@ -221,6 +229,7 @@ func (la *LineArray) insert(pos Loc, value []byte) {
 		la.insertByte(Loc{x, y}, value[i])
 		x++
 	}
+	la.dropConceals(pos.Y, y)
 }
 
 // InsertByte inserts a byte at a given location
@@ -244,6 +253,11 @@ func (la *LineArray) split(pos Loc) {
 	la.lines[pos.Y].state = nil
 	la.lines[pos.Y].match = nil
 	la.lines[pos.Y+1].match = nil
+	if pos.X == 0 {
+		// splitting at the very start moves the whole text down, so its
+		// decorations go with it
+		la.lines[pos.Y+1].deco, la.lines[pos.Y].deco = la.lines[pos.Y].deco, nil
+	}
 	la.deleteToEnd(Loc{pos.X, pos.Y})
 }
 
@@ -263,6 +277,7 @@ func (la *LineArray) remove(start, end Loc) []byte {
 		la.deleteFromStart(Loc{endX - 1, start.Y + 1})
 		la.joinLines(start.Y, start.Y+1)
 	}
+	la.dropConceals(start.Y, start.Y)
 	return sub
 }
 

@@ -59,6 +59,7 @@ var defaultCommonSettings = map[string]any{
 	"backupdir":       "",
 	"basename":        false,
 	"colorcolumn":     float64(0),
+	"conceal":         false,
 	"cursorline":      true,
 	"detectlimit":     float64(100),
 	"diffgutter":      false,

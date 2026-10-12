@@ -89,6 +89,13 @@ Here are the available options:
 
     default value: `default`
 
+* `conceal`: enable display decorations created by plugins (concealed text
+   ranges, hidden lines and virtual lines). Decorations never change the
+   buffer's contents. They are not applied on lines holding a cursor, so the
+   text being edited is always shown as it is.
+
+    default value: `false`
+
 * `cursorline`: highlight the line that the cursor is on in a different color
    (the color is defined by the colorscheme you are using).
 
