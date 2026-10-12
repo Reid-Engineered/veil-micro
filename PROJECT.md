@@ -55,7 +55,8 @@ Sync the Project copy after merging to `main`.
 - Phase 3 Virtual lines: T4 drawing + T5 vertical movement **merged** (PR #5). Single arrows
   enter hidden source (revealing it); virtual rows can't hold a cursor.
 - Phase 4 Kanban plugin: T6 demos (PR #2) and **T7 kanban plugin (PR #3) merged**. Boards draw,
-  arrows enter them, Alt-l/Alt-h/Alt-t move/toggle cards as one undo step.
+  arrows enter them; on a card Alt-arrows move it (between/within columns), Alt-d toggles,
+  each one undo step (key scheme revised in PR, see COORDINATION log).
 - Phase 5 Polish: not started.
 - Upstream: issue/discussion not yet opened (do before Phase 2 PR).
 
@@ -65,6 +66,8 @@ Sync the Project copy after merging to `main`.
 - [x] gopher-luar converts Lua tables → `[]string` (`TestDecorationsFromLua` passes).
 
 ## Handoff log (newest first; one or two lines each)
+- 2026-10-12 · chat (Claude) · Kanban keys reworked per Marcus: Alt-arrows + Alt-d with
+  default-action fallback, in-column reordering, `kanban.keys` option. Opened as PR.
 - 2026-10-12 · chat (Claude) · Rebased + merged PR #3 (kanban) after PR #5. Phases 2-4 done.
   Next: Phase 5 polish (wide chars, resize redraw, README, upstream discussion), T8 docs.
 - 2026-10-12 · Codex (PR #5 fixes) · Fixed hidden-source keyboard access and unwrapped raw-column drift; regression tests, build/race suite and real kanban keyboard/drawing tests pass. Next: Claude re-review, PR #5 merge, then PR #3 rebase/merge.

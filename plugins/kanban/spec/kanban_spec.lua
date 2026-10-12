@@ -258,6 +258,36 @@ do
 end
 check("editLines reproduces the edit", table.concat(after, "\n") == table.concat(viaEdit, "\n"))
 
+------------------------------------------------------------------ reorderCard
+local col = split("```kanban\n## A\n- [ ] one\n- [ ] two\n  two more\n\n- [ ] three\n## B\n```")
+local cb = findBoards(col)[1]
+check("reorder fixture", #cb.columns[1].cards == 3)
+
+e = reorderCard(col, cb, 1, 1, 1) -- "one" down past "two" (multi-line)
+moved = applyEdit(col, e)
+check("reorder down: order", moved[3] == "- [ ] two" and moved[4] == "  two more" and moved[5] == "- [ ] one",
+    table.concat(moved, "|"))
+check("reorder down: cursor on moved card", moved[e.cursor + 1] == "- [ ] one", e.cursor)
+check("reorder down: line count", #moved == #col)
+
+local cb2 = findBoards(moved)[1]
+e = reorderCard(moved, cb2, 1, 2, -1) -- and back up
+local back2 = applyEdit(moved, e)
+check("reorder up restores", table.concat(back2, "\n") == table.concat(col, "\n"), table.concat(back2, "|"))
+check("reorder up: cursor", back2[e.cursor + 1] == "- [ ] one", e.cursor)
+
+e = reorderCard(col, cb, 1, 2, 1) -- "two" down past "three", blank line stays between
+moved = applyEdit(col, e)
+check("reorder keeps blank between cards",
+    moved[3] == "- [ ] one" and moved[4] == "- [ ] three" and moved[5] == "" and moved[6] == "- [ ] two"
+    and moved[7] == "  two more", table.concat(moved, "|"))
+check("reorder blank: cursor", moved[e.cursor + 1] == "- [ ] two", e.cursor)
+
+local _, rerr = reorderCard(col, cb, 1, 1, -1)
+check("reorder first card up refused", rerr == "already the first card in this column", rerr)
+_, rerr = reorderCard(col, cb, 1, 3, 1)
+check("reorder last card down refused", rerr == "already the last card in this column", rerr)
+
 ------------------------------------------------------------------ toggle
 boards = findBoards(obsidian)
 e = toggleCard(obsidian, boards[1], 1, 1)

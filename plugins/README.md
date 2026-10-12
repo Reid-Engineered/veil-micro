@@ -8,7 +8,7 @@ compiled into micro and enabled by default for every user.
 |---|---|---|
 | `concealdemo` | `- [x]` → `✔`, `- [ ]` → `☐` in markdown | conceal rendering (T2, merged) |
 | `vlinedemo` | `vlinebox` / `vlinehide` / `vlineclear` commands | virtual rows (T3/T4), not drawn yet |
-| `kanban` | Obsidian-style boards drawn as columns; Alt-l/Alt-h move cards, Alt-t toggles | virtual rows + hidden lines (T3/T4) to draw; edits work now |
+| `kanban` | Obsidian-style boards drawn as columns; on a card Alt-arrows move it between/within columns, Alt-d toggles done | T1–T5 (all merged) |
 
 ## Try them
 
