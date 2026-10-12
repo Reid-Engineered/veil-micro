@@ -1,4 +1,4 @@
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 
 -- kanban: draws markdown kanban boards inline, using the veil decorations API.
 --
@@ -13,8 +13,13 @@ VERSION = "0.1.0"
 -- cursor into the board (or clicking it) reveals the raw markdown, so all
 -- editing happens on real text.
 --
--- Keys (only bound if free): Alt-l / Alt-h move the card under the cursor to
--- the next / previous column, Alt-t toggles done. Same as `kanban right|left|toggle`.
+-- Keys, inside a board with the cursor on a card (elsewhere the key keeps its
+-- normal job, through a micro action chain fallback):
+--   Alt-Right / Alt-Left   move the card to the next / previous column
+--   Alt-Up / Alt-Down      move the card up / down within its column
+--   Alt-d                  toggle done
+-- Keys you bound yourself in bindings.json always win; `set kanban.keys off`
+-- skips binding entirely. Commands: `kanban right|left|up|down|toggle|redraw`.
 --
 -- Everything up to the "micro glue" section is plain Lua with no micro calls,
 -- so it can be tested outside the editor (see spec/kanban_spec.lua).
@@ -459,6 +464,42 @@ function moveCard(lines, board, ci, ki, dir)
     return { lo = lo, hi = hi, lines = slice, cursor = cursor }
 end
 
+-- Swap the card at (ci, ki) with its neighbour above (dir = -1) or below
+-- (dir = 1) in the same column. Lines between the two cards (e.g. a blank
+-- line) stay between them.
+function reorderCard(lines, board, ci, ki, dir)
+    local cards = board.columns[ci].cards
+    local other = cards[ki + dir]
+    if other == nil then
+        if dir < 0 then
+            return nil, "already the first card in this column"
+        end
+        return nil, "already the last card in this column"
+    end
+    local upper, lower = cards[ki], other
+    if dir < 0 then
+        upper, lower = other, cards[ki]
+    end
+    local out = {}
+    for y = lower.line, lower.endLine do
+        table.insert(out, lines[y + 1])
+    end
+    for y = upper.endLine + 1, lower.line - 1 do
+        table.insert(out, lines[y + 1])
+    end
+    for y = upper.line, upper.endLine do
+        table.insert(out, lines[y + 1])
+    end
+    local lo, hi = upper.line, lower.endLine
+    local cursor
+    if dir < 0 then
+        cursor = lo -- the moved card now comes first
+    else
+        cursor = lo + (lower.endLine - lower.line + 1) + (lower.line - upper.endLine - 1)
+    end
+    return { lo = lo, hi = hi, lines = out, cursor = cursor }
+end
+
 -- Flip a card's checkbox; plain cards (no checkbox) get one.
 function toggleCard(lines, board, ci, ki)
     local card = board.columns[ci].cards[ki]
@@ -644,12 +685,10 @@ local function withCard(bp, fn)
     end
     local lines = bufLines(bp.Buf)
     local board, ci, ki = cardAt(findBoards(lines), bp.Cursor.Y)
-    if board == nil then
-        return false -- not in a board: let the key do its normal job
-    end
-    if ci == nil then
-        micro.InfoBar():Message("kanban: put the cursor on a card")
-        return true
+    if board == nil or ci == nil then
+        -- not on a card (outside a board, or on a heading): returning false
+        -- lets the key's fallback action in the binding chain run instead
+        return false
     end
     local edit, err = fn(lines, board, ci, ki)
     if edit == nil then
@@ -668,8 +707,21 @@ function moveLeft(bp)
     return withCard(bp, function(l, b, ci, ki) return moveCard(l, b, ci, ki, -1) end)
 end
 
+function moveUp(bp)
+    return withCard(bp, function(l, b, ci, ki) return reorderCard(l, b, ci, ki, -1) end)
+end
+
+function moveDown(bp)
+    return withCard(bp, function(l, b, ci, ki) return reorderCard(l, b, ci, ki, 1) end)
+end
+
 function toggle(bp)
     return withCard(bp, toggleCard)
+end
+
+local function onCard(bp)
+    local board, ci = cardAt(findBoards(bufLines(bp.Buf)), bp.Cursor.Y)
+    return board ~= nil and ci ~= nil
 end
 
 local function command(bp, args)
@@ -677,17 +729,45 @@ local function command(bp, args)
     if #args > 0 then
         which = args[1]
     end
+    if which ~= "redraw" and which ~= "" and not onCard(bp) then
+        micro.InfoBar():Message("kanban: put the cursor on a card")
+        return
+    end
     if which == "right" then
         moveRight(bp)
     elseif which == "left" then
         moveLeft(bp)
+    elseif which == "up" then
+        moveUp(bp)
+    elseif which == "down" then
+        moveDown(bp)
     elseif which == "toggle" then
         toggle(bp)
     elseif which == "redraw" then
         scan(bp.Buf)
     else
-        micro.InfoBar():Error("usage: kanban right|left|toggle|redraw")
+        micro.InfoBar():Error("usage: kanban right|left|up|down|toggle|redraw")
     end
+end
+
+-- Each key runs the kanban action first; outside a card it returns false and
+-- the chain (`|`) falls back to micro's default for that key on this platform.
+-- TryBindKey with overwrite = false never replaces a binding from the user's
+-- bindings.json, and plugin bindings are not written to that file.
+function bindKeys()
+    local runtime = import("runtime")
+    local mac = runtime.GOOS == "darwin"
+    local fallback = {
+        AltRight = mac and "WordRight" or "EndOfLine",
+        AltLeft = mac and "WordLeft" or "StartOfTextToggle",
+        AltUp = "MoveLinesUp",
+        AltDown = "MoveLinesDown",
+    }
+    config.TryBindKey("AltRight", "lua:kanban.moveRight|" .. fallback.AltRight, false)
+    config.TryBindKey("AltLeft", "lua:kanban.moveLeft|" .. fallback.AltLeft, false)
+    config.TryBindKey("AltUp", "lua:kanban.moveUp|" .. fallback.AltUp, false)
+    config.TryBindKey("AltDown", "lua:kanban.moveDown|" .. fallback.AltDown, false)
+    config.TryBindKey("Alt-d", "lua:kanban.toggle", false)
 end
 
 local function enableFor(buf)
@@ -696,13 +776,17 @@ local function enableFor(buf)
     end
 end
 
+function preinit()
+    -- registered in preinit so a value in settings.json is applied before init()
+    config.RegisterGlobalOption("kanban", "keys", true)
+end
+
 function init()
     enabled = true
     config.MakeCommand("kanban", command, config.NoComplete)
-    -- overwrite = false: never steal a key the user has bound
-    config.TryBindKey("Alt-l", "lua:kanban.moveRight", false)
-    config.TryBindKey("Alt-h", "lua:kanban.moveLeft", false)
-    config.TryBindKey("Alt-t", "lua:kanban.toggle", false)
+    if config.GetGlobalOption("kanban.keys") then
+        bindKeys()
+    end
     config.AddRuntimeFile("kanban", config.RTHelp, "help/kanban.md")
     local snapshot = {}
     for i, b in ipairs(tracked) do

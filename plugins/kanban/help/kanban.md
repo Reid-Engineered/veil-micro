@@ -23,15 +23,34 @@ the cursor into it (or click it) to edit the raw markdown.
 
 ## Keys and commands
 
-| Key   | Command          | Action                                   |
-|-------|------------------|------------------------------------------|
-| Alt-l | `kanban right`   | move the card under the cursor right     |
-| Alt-h | `kanban left`    | move the card under the cursor left      |
-| Alt-t | `kanban toggle`  | toggle the card's checkbox               |
-|       | `kanban redraw`  | redraw boards (e.g. after a resize)      |
+With the cursor on a card (the board shows its markdown then):
 
-Keys are only bound if you haven't bound them yourself. A move is one undo
-step. Disable the plugin with `set kanban off`.
+| Key       | Command          | Action                                      |
+|-----------|------------------|---------------------------------------------|
+| Alt-Right | `kanban right`   | move the card to the next column            |
+| Alt-Left  | `kanban left`    | move the card to the previous column        |
+| Alt-Up    | `kanban up`      | move the card up within its column          |
+| Alt-Down  | `kanban down`    | move the card down within its column        |
+| Alt-d     | `kanban toggle`  | toggle the card's checkbox                  |
+|           | `kanban redraw`  | redraw boards (e.g. after a resize)         |
+
+Anywhere else, the arrow keys keep their usual meaning (Alt-Up/Down move
+lines; Alt-Left/Right are start-of-text and end-of-line, or word left/right on
+macOS): the binding is a chain that falls back to the default action.
+
+Every move or toggle is a single undo step.
+
+Keys you have bound yourself in `bindings.json` are never replaced. To skip the
+plugin's bindings entirely, run `set kanban.keys off` and restart, then bind
+the actions yourself, e.g. in `bindings.json`:
+
+    "Alt-Right": "lua:kanban.moveRight|EndOfLine"
+
+Actions: `kanban.moveRight`, `kanban.moveLeft`, `kanban.moveUp`,
+`kanban.moveDown`, `kanban.toggle`. Each returns false when the cursor is not
+on a card, so they chain with `|`.
+
+Disable the plugin with `set kanban off`.
 
 ## Colours
 

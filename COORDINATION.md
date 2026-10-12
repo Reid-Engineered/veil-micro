@@ -81,6 +81,12 @@ Whoever needs a change in the other's region posts a request below.
 _(none)_
 
 ## Log
+- 2026-10-12T17:30-04:00 T7 follow-up (Claude, chat, branch `agent-claude/kanban-keys`, files
+  `plugins/kanban/**`, `plugins/README.md`): Marcus chose arrow-based keys. On a card:
+  Alt-Right/Left move between columns, Alt-Up/Down reorder within a column (new
+  `reorderCard`), Alt-d toggles. Bindings are `lua:kanban.X|<default>` chains (macOS
+  defaults handled), so the keys keep their normal action off cards; user bindings.json
+  entries win; `kanban.keys` (global, default on) disables them. Replaces Alt-h/Alt-l/Alt-t.
 - 2026-10-12T15:35-04:00 T7 (Claude, chat): rebased PR #3 onto main after PR #5 (888ac716); only
   COORDINATION.md/PROJECT.md conflicted (both logs kept, ordered by time); plugin code identical
   to the Codex-verified a41f578e. Merged as PR #3. Phases 2-4 complete on main.

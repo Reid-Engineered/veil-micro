@@ -123,3 +123,25 @@ func TestMoveLeftAndToggleUndo(t *testing.T) {
 		t.Fatalf("undo both:\n got %q\nwant %q", got, before)
 	}
 }
+
+func TestReorderIsOneUndoEvent(t *testing.T) {
+	const before = "```kanban\n## A\n- [ ] one\n- [ ] two\n  two more\n```"
+	const after = "```kanban\n## A\n- [ ] two\n  two more\n- [ ] one\n```"
+
+	b := buffer.NewBufferFromString(before, "", buffer.BTDefault)
+	L := pluginOn(t, b)
+	defer L.Close()
+
+	events := b.UndoStack.Len()
+	runEdit(t, L, "reorderCard(lines, board, 1, 1, 1)")
+	if got := string(b.Bytes()); got != after {
+		t.Fatalf("reorder:\n got %q\nwant %q", got, after)
+	}
+	if n := b.UndoStack.Len() - events; n != 1 {
+		t.Fatalf("reorder recorded %d undo events, want 1", n)
+	}
+	b.UndoOneEvent()
+	if got := string(b.Bytes()); got != before {
+		t.Fatalf("undo:\n got %q\nwant %q", got, before)
+	}
+}
