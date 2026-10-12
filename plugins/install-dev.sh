@@ -11,5 +11,6 @@ for p in "$here"/*/; do
     name="$(basename "$p")"
     rm -rf "${dest:?}/$name"
     cp -r "$p" "$dest/$name"
+    rm -rf "${dest:?}/$name/spec" # tests aren't plugin code (micro would ignore them anyway)
     echo "installed $name -> $dest/$name"
 done

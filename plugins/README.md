@@ -8,6 +8,7 @@ compiled into micro and enabled by default for every user.
 |---|---|---|
 | `concealdemo` | `- [x]` → `✔`, `- [ ]` → `☐` in markdown | conceal rendering (T2, merged) |
 | `vlinedemo` | `vlinebox` / `vlinehide` / `vlineclear` commands | virtual rows (T3/T4), not drawn yet |
+| `kanban` | Obsidian-style boards drawn as columns; Alt-l/Alt-h move cards, Alt-t toggles | virtual rows + hidden lines (T3/T4) to draw; edits work now |
 
 ## Try them
 
@@ -23,3 +24,18 @@ checked in). Without them micro can't detect filetypes, `.md` files open as
 `unknown`, and concealdemo never switches on.
 
 Inside micro-dev, `help concealdemo` and `help vlinedemo` show usage.
+
+## Tests
+
+Plugin logic that doesn't need the editor lives in pure Lua functions and is
+tested by `*_spec.lua` files under each plugin's `spec/` folder, run through
+gopher-lua (the Lua micro embeds). kanban's Go test also drives a real micro
+buffer to check that a card move is exactly one undo event:
+
+```bash
+go test ./plugins/...
+```
+
+Specs live in `spec/` because micro loads every top-level `.lua` file in a
+plugin folder, and because the repo's `.gitignore` ignores any `test/` directory.
+

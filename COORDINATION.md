@@ -23,7 +23,7 @@ Merge to `main` only via small reviewed merges, rebased on `main` first.
 | T4 | Virtual-row drawing + gutter | Codex (assigned by Marcus) | `agent-codex/vlines-movement` | `internal/display/bufwindow.go` (row loop / gutter / Relocate), `virtual.go`, `virtual_test.go` (new) | done — build/tests/race pass; awaiting independent review | 2026-10-12T14:55-04:00 |
 | T5 | Cursor up/down + mouse over virtual/hidden rows | Codex (assigned by Marcus) | `agent-codex/vlines-movement` | `internal/action/actions.go` (vertical movement / scrolling), `decorations_test.go` (new), `internal/display/softwrap.go` (`CursorScroll`) | done — build/tests/race pass; awaiting independent review | 2026-10-12T14:55-04:00 |
 | T6 | Test plugins (`- [x]`→`✔`, box below a line) | Claude (chat) | `agent-claude/test-plugins` | `plugins/` (new top-level dir: `concealdemo/`, `vlinedemo/`, `install-dev.sh`, `README.md`) | in review (PR) | 2026-10-12T13:41-04:00 |
-| T7 | Kanban plugin | C | `agent-c/kanban` | `runtime/plugins/kanban/` | open (stub against API.md) | |
+| T7 | Kanban plugin | Claude (chat) | `agent-claude/kanban` | `plugins/kanban/` (moved from `runtime/plugins/kanban/`, same reason as T6) | **done — merged to main as PR #3** | 2026-10-12T14:30-04:00 |
 | T8 | Docs: help page + fork README | C | `agent-c/docs` | `runtime/help/plugins.md` (append section), `README.fork.md` | open | |
 
 ### bufwindow.go is shared — split rule
@@ -81,8 +81,24 @@ Whoever needs a change in the other's region posts a request below.
 _(none)_
 
 ## Log
+- 2026-10-12T15:35-04:00 T7 (Claude, chat): rebased PR #3 onto main after PR #5 (888ac716); only
+  COORDINATION.md/PROJECT.md conflicted (both logs kept, ordered by time); plugin code identical
+  to the Codex-verified a41f578e. Merged as PR #3. Phases 2-4 complete on main.
 - 2026-10-12T15:16-04:00 T5 review fixes (Codex): reproduced Claude PR #5 P1/P2. Single arrows now enter hidden source and reveal it, only after crossing the current wrapped logical-line boundary; page-distance moves still skip hidden/virtual rows. Unwrapped destination X uses raw text and LastVisualX; wrapped moves retain current-layout mapping before reveal, which can reflow. Regression tests cover both directions, hidden EOF/group entry, selection, wrapped boundaries, checklists and Unicode/tabs. Real PR #3 Lua kanban keyboard entry/card move/undo and drawing pass against the fixed core in both wrap modes. Build, standard tests, display/action race pass. Awaiting Claude re-review before PR #5 and then PR #3 merge. No installed changes.
+- 2026-10-12T15:10-04:00 T7 (Claude, chat): addressed Codex's PR #3 review. (P1) card moves and
+  toggles are one `MultipleReplace` of single-line deltas = one undo event (Replace is
+  Remove+Insert, split by undo's 1 s buckets; micro's replace event assumes single-line text).
+  (P2) board cleanup sweeps `kanban:1..maxGroups`, no per-path bookkeeping (unnamed buffers).
+  (P2) specs moved to `plugins/kanban/spec/` (`.gitignore` ignores `test/`, so they were never
+  committed); new Go test drives a real micro buffer: move = 1 undo event, undo/redo exact.
+  (P2) fence-aware parsing: a ```kanban example inside another ```/~~~ fence stays literal.
 - 2026-10-12T15:02:41-04:00 T4/T5 (Codex): hidden text now takes zero drawn rows; virtual blocks draw in row-model order with blank gutters, styles, Unicode/tab clipping and offsets in either wrap mode. Cursor arrows/page/selection skip synthetic rows and hidden lines; mouse mapping reveals source anchors. Fixed offscreen text clearing into adjacent split and EOF scrolling with trailing virtual rows. `make build`, `make test`, uncached display/action race tests and real Lua vlinedemo runtime pass. 13 new tests include 40 flattened-row scrolling comparisons. Interface and Buffer/Lua APIs unchanged; `CursorScroll` is an optional display helper. Independent review required; no installed editor/plugins changed.
+- 2026-10-12T14:55-04:00 T7 (Claude, chat): kanban plugin in `plugins/kanban/`. Obsidian Kanban
+  files and ```kanban fences; ConcealLines + virtual-line board per group ("group" reveal);
+  Alt-l/Alt-h/Alt-t (bound only if free) + `kanban right|left|toggle|redraw`; card moves are
+  one Replace (one undo step). Pure logic tested by `test/kanban_spec.lua` (30+ checks, passes
+  in fengari; a deliberate bug is caught), run in gopher-lua by `go test ./plugins/...`.
+  Board drawing needs T3/T4 (hidden lines + virtual rows); edits/keys work now.
 - 2026-10-12T14:39:36-04:00 T3 (Codex): implemented hidden/virtual row counts,
   zero-row-safe Scroll/Diff, stale-location normalization, and conceal-aware
   wrapped/unwrapped source/visual mapping using T2's shared glyph sequence.
