@@ -19,7 +19,7 @@ Merge to `main` only via small reviewed merges, rebased on `main` first.
 | T0 | Phase 1 recon, plan, API draft, PROJECT.md | recon | — | `PLAN.md`, `docs/API.md`, `COORDINATION.md`, `PROJECT.md` | done | 2026-10-12T12:30-04:00 |
 | T1 | Decoration storage + edit semantics + Buffer API methods | A (Claude, chat) | `agent-a/decorations-core` | `internal/buffer/decorations.go`, `decorations_test.go` (new), `internal/buffer/line_array.go`, `internal/config/settings.go`, `runtime/help/options.md` | **done — merged to main (review waived by Marcus)** | 2026-10-12T12:20-04:00 |
 | T2 | Conceal rendering + reveal-on-cursor + horizontal mapping | Codex (assigned by Marcus) | `agent-codex/conceal-render` | `internal/display/bufwindow.go` (glyph loop, `getStartInfo`, `LocFromVisual`, minimal prerequisite skeleton), `internal/display/conceal.go`, `internal/display/conceal_test.go` (new) | **done — merged to main as PR #1**; T3 integration pending | 2026-10-12T12:42:27-04:00 |
-| T3 | Row model: hidden lines + virtual rows in scroll/diff/mapping | B | `agent-b/rows` | `internal/display/softwrap.go` | open | |
+| T3 | Row model: hidden lines + virtual rows in scroll/diff/mapping | Codex (assigned by Marcus) | `agent-codex/rows` | `internal/display/softwrap.go`, `softwrap_test.go` (new), `bufwindow.go` (`LocFromVisual` delegation only) | done — build/tests pass; awaiting review | 2026-10-12T14:29:58-04:00 |
 | T4 | Virtual-row drawing + gutter | B | `agent-b/vlines-render` | `internal/display/bufwindow.go` (row loop / `wrap()` / gutter helpers, `Relocate`) | blocked by T1, T3 | |
 | T5 | Cursor up/down + mouse over virtual/hidden rows | B | `agent-b/cursor-move` | `internal/action/actions.go` (`MoveCursorUp/Down`, mouse handlers) | blocked by T3 | |
 | T6 | Test plugins (`- [x]`→`✔`, box below a line) | Claude (chat) | `agent-claude/test-plugins` | `plugins/` (new top-level dir: `concealdemo/`, `vlinedemo/`, `install-dev.sh`, `README.md`) | in review (PR) | 2026-10-12T13:41-04:00 |
@@ -34,6 +34,20 @@ and adds a hook `w.concealAt(line, x)` returning `nil`. A then implements that h
 Whoever needs a change in the other's region posts a request below.
 
 ## Requests
+- T3 -> T4/T5 handoff: `getTextRowCount(line)` excludes hidden text;
+  `getVirtualRowCount(line)` includes only unsuppressed virtual blocks;
+  `getRowCount` is their sum. Text rows precede virtual rows, including the
+  existing empty EOL row when wrapped text exactly fills the width. Virtual rows
+  are never wrapped and remain visible on a hidden anchor unless revealed.
+  `StartLine.Row` can identify a virtual row even with softwrap off; T4 must
+  normalize `StartLine` with `Scroll(StartLine, 0)` and consume this row ordering
+  when drawing. All-hidden views return `{0,0}` as an empty-view sentinel.
+  `LocFromVLoc` maps virtual rows to anchor EOL. T5 must skip them during cursor
+  movement to avoid landing back on the same anchor. T4/T5 remain separate tasks.
+- T3 (Codex): claim includes removing T2's duplicate non-softwrap conceal
+  shortcut in `LocFromVisual`; all horizontal and virtual-row hit testing must
+  delegate to the unified `LocFromVLoc` row model. T4 drawing/Relocate and T5
+  action ownership remain unchanged.
 - 2026-10-12T13:31:52-04:00 T2 (Codex): reclaiming the same T2 files
   for Claude's PR #1 fixes. No expansion into B's files or row-model work.
 - 2026-10-12T12:42:27-04:00 T2 (Codex): Marcus authorized preparing the minimal T4
@@ -64,6 +78,15 @@ Whoever needs a change in the other's region posts a request below.
 _(none)_
 
 ## Log
+- 2026-10-12T14:39:36-04:00 T3 (Codex): implemented hidden/virtual row counts,
+  zero-row-safe Scroll/Diff, stale-location normalization, and conceal-aware
+  wrapped/unwrapped source/visual mapping using T2's shared glyph sequence.
+  Removed only the duplicate LocFromVisual shortcut in bufwindow.go; no drawing
+  or action changes and no Lua API changes. Nine T3 tests plus 100 randomized
+  screen/mapping comparisons pass; existing T2 tests, `make build`, `make test`
+  and display race tests pass on Go 1.26.0 WSL. Review required before merge.
+  T4 still must draw hidden/virtual rows and consume the new StartLine.Row model;
+  T5 still must skip virtual rows for keyboard movement. No user install performed.
 - 2026-10-12T14:25-04:00 T6 (Claude, chat): fixed Codex's follow-up P1 (infinite loop when an
   unnamed buffer is open before `init()`): buffers are registered only in `onBufferOpen`, and
   `init()` iterates a snapshot. Verified in a Lua harness (fengari, stubbed micro modules):

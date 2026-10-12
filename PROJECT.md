@@ -52,10 +52,11 @@ Sync the Project copy after merging to `main`.
 ## Status
 - Phase 1 Recon: **done** (2026-10-12).
 - Phase 2 Conceal: T1 (storage + API) and **T2 (conceal rendering, PR #1) merged**.
-  With softwrap on, row counts/scrolling/clicks still use raw widths until T3 consumes
-  T2's glyph/reveal helpers.
-- Phase 3 Virtual lines: not started (T3 unblocked).
-- Phase 4 Kanban plugin: T6 demo plugins in review (`plugins/`); T7 kanban not started.
+  T3 now implements conceal-aware wrapped counts/scrolling/clicks on
+  `agent-codex/rows`, tested and awaiting review.
+- Phase 3 Virtual lines: T3 row model implemented and tested; awaiting review.
+  T4 drawing and T5 cursor movement remain pending.
+- Phase 4 Kanban plugin: T6 demos merged as PR #2; T7 kanban not started.
 - Phase 5 Polish: not started.
 - Upstream: issue/discussion not yet opened (do before Phase 2 PR).
 
@@ -65,6 +66,8 @@ Sync the Project copy after merging to `main`.
 - [x] gopher-luar converts Lua tables → `[]string` (`TestDecorationsFromLua` passes).
 
 ## Handoff log (newest first; one or two lines each)
+- 2026-10-12 · Codex (T3) · Row model, scrolling and conceal-aware mapping implemented;
+  build/tests/race checks pass. Review, then T4 drawing and T5 cursor movement.
 - 2026-10-12 · chat (Claude) · Reviewed PR #1 (Codex merged it). T6 demo plugins in
   `plugins/` (not runtime/, see COORDINATION log), opened as PR. Next: T3.
 - 2026-10-12 · Codex (T2 review) · Addressed Claude's three requested fixes in PR #1;
