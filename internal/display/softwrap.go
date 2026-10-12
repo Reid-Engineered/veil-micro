@@ -68,6 +68,9 @@ type SoftWrap interface {
 }
 
 func (w *BufWindow) getVLocFromLoc(loc buffer.Loc) VLoc {
+	if glyphs := w.concealGlyphs(loc.Y); glyphs != nil {
+		return w.concealedVLoc(loc, glyphs, true)
+	}
 	vloc := VLoc{SLoc: SLoc{loc.Y, 0}, VisualX: 0}
 
 	if loc.X <= 0 {
@@ -143,6 +146,9 @@ func (w *BufWindow) getVLocFromLoc(loc buffer.Loc) VLoc {
 }
 
 func (w *BufWindow) getLocFromVLoc(svloc VLoc) buffer.Loc {
+	if glyphs := w.concealGlyphs(svloc.Line); glyphs != nil {
+		return w.concealedLoc(svloc, glyphs)
+	}
 	loc := buffer.Loc{X: 0, Y: svloc.Line}
 
 	if w.bufWidth <= 0 {
@@ -223,49 +229,132 @@ func (w *BufWindow) getLocFromVLoc(svloc VLoc) buffer.Loc {
 	return loc
 }
 
-func (w *BufWindow) getRowCount(line int) int {
+// beginRowModel shares one reveal snapshot throughout an operation. Drawing may
+// already own the snapshot; nested mapping calls must not clear that snapshot.
+func (w *BufWindow) beginRowModel() func() {
+	if w.frameReveal != nil || !w.decorationsEnabled() {
+		return func() {}
+	}
+	w.frameReveal = w.computeDecorationReveal()
+	return func() { w.frameReveal = nil }
+}
+
+// lineHidden and the two row counts form T4's drawing contract. Text rows come
+// first, followed by unwrapped virtual rows in block/insertion order.
+func (w *BufWindow) lineHidden(line int) bool {
+	if !w.decorationsEnabled() {
+		return false
+	}
+	reveal := w.decorationRevealState()
+	for _, group := range w.Buf.LineHiddenBy(line) {
+		if !reveal.suppressed(line, group) {
+			return true
+		}
+	}
+	return false
+}
+
+func (w *BufWindow) getTextRowCount(line int) int {
+	if line < 0 || line >= w.Buf.LinesNum() || w.lineHidden(line) {
+		return 0
+	}
+	if !w.Buf.Settings["softwrap"].(bool) {
+		return 1
+	}
 	eol := buffer.Loc{X: util.CharacterCount(w.Buf.LineBytes(line)), Y: line}
 	return w.getVLocFromLoc(eol).Row + 1
+}
+
+func (w *BufWindow) getVirtualRowCount(line int) int {
+	if !w.decorationsEnabled() {
+		return 0
+	}
+	reveal := w.decorationRevealState()
+	count := 0
+	for _, block := range w.Buf.LineVirtualBlocks(line) {
+		if !reveal.suppressed(line, block.Group) {
+			count += len(block.Rows)
+		}
+	}
+	return count
+}
+
+func (w *BufWindow) getRowCount(line int) int {
+	return w.getTextRowCount(line) + w.getVirtualRowCount(line)
+}
+
+// normalizeSLoc clamps stale rows after edits/reveal and skips zero-row lines.
+// Prefer the following visible row; at a hidden tail use the last preceding row.
+// If every line has zero rows, {0,0} is an empty-view sentinel.
+func (w *BufWindow) normalizeSLoc(s SLoc) SLoc {
+	s.Line = util.Clamp(s.Line, 0, w.Buf.LinesNum()-1)
+	if count := w.getRowCount(s.Line); count > 0 {
+		s.Row = util.Clamp(s.Row, 0, count-1)
+		return s
+	}
+	for line := s.Line + 1; line < w.Buf.LinesNum(); line++ {
+		if w.getRowCount(line) > 0 {
+			return SLoc{line, 0}
+		}
+	}
+	for line := s.Line - 1; line >= 0; line-- {
+		if count := w.getRowCount(line); count > 0 {
+			return SLoc{line, count - 1}
+		}
+	}
+	return SLoc{}
 }
 
 func (w *BufWindow) scrollUp(s SLoc, n int) SLoc {
 	for n > 0 {
 		if n <= s.Row {
 			s.Row -= n
-			n = 0
-		} else if s.Line > 0 {
-			s.Line--
-			n -= s.Row + 1
-			s.Row = w.getRowCount(s.Line) - 1
-		} else {
+			break
+		}
+		previous := s.Line - 1
+		for previous >= 0 && w.getRowCount(previous) == 0 {
+			previous--
+		}
+		if previous < 0 {
 			s.Row = 0
 			break
 		}
+		n -= s.Row + 1
+		s = SLoc{previous, w.getRowCount(previous) - 1}
 	}
 	return s
 }
 
 func (w *BufWindow) scrollDown(s SLoc, n int) SLoc {
 	for n > 0 {
-		rc := w.getRowCount(s.Line)
-		if n < rc-s.Row {
+		count := w.getRowCount(s.Line)
+		if n < count-s.Row {
 			s.Row += n
-			n = 0
-		} else if s.Line < w.Buf.LinesNum()-1 {
-			s.Line++
-			n -= rc - s.Row
-			s.Row = 0
-		} else {
-			s.Row = rc - 1
 			break
 		}
+		next := s.Line + 1
+		for next < w.Buf.LinesNum() && w.getRowCount(next) == 0 {
+			next++
+		}
+		if next >= w.Buf.LinesNum() {
+			s.Row = util.Max(0, count-1)
+			break
+		}
+		n -= count - s.Row
+		s = SLoc{next, 0}
 	}
 	return s
 }
 
 func (w *BufWindow) scroll(s SLoc, n int) SLoc {
+	s = w.normalizeSLoc(s)
+	if w.getRowCount(s.Line) == 0 {
+		return s
+	}
 	if n < 0 {
-		return w.scrollUp(s, -n)
+		// Avoid negating MinInt, whose magnitude is not representable as int.
+		s = w.scrollUp(s, -(n + 1))
+		return w.scrollUp(s, 1)
 	}
 	return w.scrollDown(s, n)
 }
@@ -290,53 +379,162 @@ func (w *BufWindow) diff(s1, s2 SLoc) int {
 // which means scrolling up. The returned location is guaranteed to be
 // within the buffer boundaries.
 func (w *BufWindow) Scroll(s SLoc, n int) SLoc {
-	if !w.Buf.Settings["softwrap"].(bool) {
-		s.Line = util.Clamp(s.Line+n, 0, w.Buf.LinesNum()-1)
+	if !w.Buf.Settings["softwrap"].(bool) && !w.decorationsEnabled() {
+		// Drop stale virtual-row offsets when decorations have been disabled.
+		s.Line = util.Clamp(s.Line, 0, w.Buf.LinesNum()-1)
+		s.Row = 0
+		// Clamp before addition to avoid overflow on large scroll requests.
+		n = util.Clamp(n, -s.Line, w.Buf.LinesNum()-1-s.Line)
+		s.Line += n
 		return s
 	}
+	done := w.beginRowModel()
+	defer done()
 	return w.scroll(s, n)
 }
 
-// Diff returns the difference (the vertical distance) between two SLocs.
+// Diff returns the signed visual-row distance between two scrolling locations.
 func (w *BufWindow) Diff(s1, s2 SLoc) int {
-	if !w.Buf.Settings["softwrap"].(bool) {
+	if !w.Buf.Settings["softwrap"].(bool) && !w.decorationsEnabled() {
 		return s2.Line - s1.Line
 	}
+	done := w.beginRowModel()
+	defer done()
+	s1, s2 = w.normalizeSLoc(s1), w.normalizeSLoc(s2)
 	if s1.GreaterThan(s2) {
 		return -w.diff(s2, s1)
 	}
 	return w.diff(s1, s2)
 }
 
-// SLocFromLoc takes a position in the buffer and returns the location
-// of the visual line containing this position.
+// SLocFromLoc returns the visual row containing a source location. Hidden source
+// lines project onto the next visible row, or the preceding row at EOF.
 func (w *BufWindow) SLocFromLoc(loc buffer.Loc) SLoc {
-	if !w.Buf.Settings["softwrap"].(bool) {
+	// Keep the uniform-row lookup O(1), without scanning the source line.
+	if !w.Buf.Settings["softwrap"].(bool) && !w.decorationsEnabled() {
 		return SLoc{loc.Y, 0}
 	}
-	return w.getVLocFromLoc(loc).SLoc
+	return w.VLocFromLoc(loc).SLoc
 }
 
-// VLocFromLoc takes a position in the buffer and returns the corresponding
-// visual location in the linewrapped buffer.
+// VLocFromLoc maps source character coordinates to displayed coordinates.
 func (w *BufWindow) VLocFromLoc(loc buffer.Loc) VLoc {
+	done := w.beginRowModel()
+	defer done()
+	if w.lineHidden(loc.Y) {
+		return VLoc{SLoc: w.normalizeSLoc(SLoc{loc.Y, 0})}
+	}
 	if !w.Buf.Settings["softwrap"].(bool) {
+		if glyphs := w.concealGlyphs(loc.Y); glyphs != nil {
+			return w.concealedVLoc(loc, glyphs, false)
+		}
 		tabsize := util.IntOpt(w.Buf.Settings["tabsize"])
-
 		visualx := util.StringWidth(w.Buf.LineBytes(loc.Y), loc.X, tabsize)
 		return VLoc{SLoc{loc.Y, 0}, visualx}
 	}
 	return w.getVLocFromLoc(loc)
 }
 
-// LocFromVLoc takes a visual location in the linewrapped buffer and returns
-// the position in the buffer corresponding to this visual location.
+// LocFromVLoc maps displayed coordinates back to source characters. Every
+// virtual row maps to the end of its anchor line, regardless of horizontal x.
 func (w *BufWindow) LocFromVLoc(vloc VLoc) buffer.Loc {
+	done := w.beginRowModel()
+	defer done()
+	if w.decorationsEnabled() {
+		vloc.SLoc = w.normalizeSLoc(vloc.SLoc)
+		if vloc.Row >= w.getTextRowCount(vloc.Line) {
+			return buffer.Loc{X: util.CharacterCount(w.Buf.LineBytes(vloc.Line)), Y: vloc.Line}
+		}
+	}
 	if !w.Buf.Settings["softwrap"].(bool) {
+		if loc, ok := w.concealLocFromVisual(vloc.Line, vloc.VisualX); ok {
+			return loc
+		}
 		tabsize := util.IntOpt(w.Buf.Settings["tabsize"])
-
 		x := util.GetCharPosInLine(w.Buf.LineBytes(vloc.Line), vloc.VisualX, tabsize)
 		return buffer.Loc{x, vloc.Line}
 	}
 	return w.getLocFromVLoc(vloc)
+}
+
+// placedGlyph is a displayed character after applying the same tab and word
+// wrapping rules as displayBuffer. Source coordinates remain on displayGlyph.
+type placedGlyph struct {
+	glyph         displayGlyph
+	row, x, width int
+}
+
+func (w *BufWindow) placeConcealGlyphs(line int, glyphs []displayGlyph, wrap bool) ([]placedGlyph, VLoc) {
+	end := VLoc{SLoc: SLoc{line, 0}}
+	if wrap && w.bufWidth <= 0 {
+		return nil, end
+	}
+	placed := make([]placedGlyph, 0, len(glyphs))
+	wordStart, wordWidth := 0, 0
+	widths := make([]int, 0)
+	wordwrap := wrap && w.Buf.Settings["wordwrap"].(bool)
+	for i, g := range glyphs {
+		width := g.width
+		if wrap && g.r == '\t' {
+			width = util.Min(width, w.bufWidth-end.VisualX)
+		}
+		widths = append(widths, width)
+		wordWidth += width
+		if wordwrap && !util.IsWhitespace(g.r) && i+1 < len(glyphs) && wordWidth < w.bufWidth {
+			continue
+		}
+		if wrap && end.VisualX+wordWidth > w.bufWidth && end.VisualX > 0 {
+			end.Row++
+			end.VisualX = 0
+		}
+		for j, width := range widths {
+			placed = append(placed, placedGlyph{glyphs[wordStart+j], end.Row, end.VisualX, width})
+			end.VisualX += width
+		}
+		if wrap && end.VisualX >= w.bufWidth {
+			end.Row++
+			end.VisualX = 0
+		}
+		wordStart = i + 1
+		wordWidth = 0
+		widths = widths[:0]
+	}
+	return placed, end
+}
+
+func (w *BufWindow) concealedVLoc(loc buffer.Loc, glyphs []displayGlyph, wrap bool) VLoc {
+	placed, end := w.placeConcealGlyphs(loc.Y, glyphs, wrap)
+	for _, p := range placed {
+		if loc.X <= p.glyph.col || (p.glyph.synthetic && loc.X < p.glyph.end) {
+			return VLoc{SLoc{loc.Y, p.row}, p.x}
+		}
+	}
+	return end
+}
+
+func (w *BufWindow) concealedLoc(vloc VLoc, glyphs []displayGlyph) buffer.Loc {
+	placed, end := w.placeConcealGlyphs(vloc.Line, glyphs, true)
+	eol := buffer.Loc{X: util.CharacterCount(w.Buf.LineBytes(vloc.Line)), Y: vloc.Line}
+	if w.bufWidth <= 0 {
+		return buffer.Loc{Y: vloc.Line}
+	}
+	previous := -1
+	for i, p := range placed {
+		if p.row > vloc.Row {
+			if previous >= 0 {
+				return buffer.Loc{X: placed[previous].glyph.col, Y: vloc.Line}
+			}
+			return buffer.Loc{X: p.glyph.col, Y: vloc.Line}
+		}
+		if p.row == vloc.Row {
+			if p.x+p.width > vloc.VisualX {
+				return buffer.Loc{X: p.glyph.col, Y: vloc.Line}
+			}
+			previous = i
+		}
+	}
+	if vloc.Row < end.Row && previous >= 0 {
+		return buffer.Loc{X: placed[previous].glyph.col, Y: vloc.Line}
+	}
+	return eol
 }

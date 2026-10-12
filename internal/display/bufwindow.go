@@ -286,11 +286,6 @@ func (w *BufWindow) LocFromVisual(svloc buffer.Loc) buffer.Loc {
 		SLoc:    w.Scroll(w.StartLine, svloc.Y-w.Y),
 		VisualX: vx + w.StartCol,
 	}
-	if !w.Buf.Settings["softwrap"].(bool) {
-		if loc, ok := w.concealLocFromVisual(vloc.Line, vloc.VisualX); ok {
-			return loc
-		}
-	}
 	return w.LocFromVLoc(vloc)
 }
 
