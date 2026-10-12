@@ -62,26 +62,10 @@ func (reveal *decorationReveal) suppressed(line int, group string) bool {
 	return reveal == nil || reveal.lines[line] || reveal.groups[group]
 }
 
+// decorationSuppressed is reserved for T3/T4 to apply the same window-local
+// reveal decision to hidden lines and virtual rows as T2 applies to conceals.
 func (w *BufWindow) decorationSuppressed(line int, group string) bool {
 	return w.decorationRevealState().suppressed(line, group)
-}
-
-// concealAt is the shared drawing hook reserved by COORDINATION.md.
-func (w *BufWindow) concealAt(line, x int) *buffer.Conceal {
-	if !w.decorationsEnabled() {
-		return nil
-	}
-	reveal := w.decorationRevealState()
-	for _, c := range w.Buf.LineConceals(line) {
-		if c.Start > x {
-			break
-		}
-		if x < c.End && !reveal.suppressed(line, c.Group) {
-			conceal := c
-			return &conceal
-		}
-	}
-	return nil
 }
 
 // displayGlyph retains source character coordinates while describing a display

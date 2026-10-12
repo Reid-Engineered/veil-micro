@@ -53,7 +53,8 @@ Sync the Project copy after merging to `main`.
 - Phase 1 Recon: **done** (2026-10-12).
 - Phase 2 Conceal: **T1 (storage + API) merged to main** (2026-10-12).
   T2 (conceal render): implemented and tested on `agent-codex/conceal-render`;
-  awaiting independent review. T3 must consume its shared glyph/reveal helpers
+  Claude's independent review fixes are applied and tested in PR #1; merge pending.
+  T3 must consume its shared glyph/reveal helpers
   for conceal-aware wrapped row counts, scrolling and hit testing.
 - Phase 3 Virtual lines: not started (T3 unblocked).
 - Phase 4 Kanban plugin: not started (can stub against API.md).
@@ -66,6 +67,8 @@ Sync the Project copy after merging to `main`.
 - [x] gopher-luar converts Lua tables → `[]string` (`TestDecorationsFromLua` passes).
 
 ## Handoff log (newest first; one or two lines each)
+- 2026-10-12 · Codex (T2 review) · Addressed Claude's three requested fixes in PR #1;
+  build, standard tests and display race tests pass. Merge and T3 integration remain.
 - 2026-10-12 · Codex (T2) · Conceal drawing/reveal/horizontal clicks implemented;
   standard build/tests + display race tests pass. Review, then B's T3 integration.
 - 2026-10-12 · chat (Claude, agent A) · Merged T1 to main (review waived). T2/T3 open.

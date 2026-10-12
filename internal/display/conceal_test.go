@@ -170,11 +170,11 @@ func TestConcealRevealIndependentSplits(t *testing.T) {
 	other.Settings = w.Buf.Settings
 	other.GetActiveCursor().Loc = buffer.Loc{X: 1, Y: 1}
 	second := NewBufWindow(0, 0, 20, 12, other)
-	if w.concealAt(1, 1) == nil || second.concealAt(1, 1) != nil {
+	if w.concealGlyphs(1) == nil || second.concealGlyphs(1) != nil {
 		t.Fatal("reveal state shared between windows")
 	}
 	second.SetActive(false)
-	if second.concealAt(1, 1) != nil {
+	if second.concealGlyphs(1) != nil {
 		t.Fatal("inactive window cursor should still reveal")
 	}
 }
@@ -402,11 +402,11 @@ func TestConcealFrameRevealDoesNotLeakAfterDrawing(t *testing.T) {
 		t.Fatal("frame snapshot retained")
 	}
 	w.Buf.GetActiveCursor().Loc = buffer.Loc{Y: 1}
-	if w.concealAt(1, 0) != nil {
+	if w.concealGlyphs(1) != nil {
 		t.Fatal("cursor movement used stale reveal state")
 	}
 	w.Buf.GetActiveCursor().Loc = buffer.Loc{}
-	if w.concealAt(1, 0) == nil {
+	if w.concealGlyphs(1) == nil {
 		t.Fatal("conceal failed to resume")
 	}
 }

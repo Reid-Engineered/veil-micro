@@ -776,7 +776,7 @@ func (w *BufWindow) displayBuffer() {
 			}
 
 			// If a word (or just a wide rune) does not fit in the window
-			if vloc.X+util.Max(0, wordwidth-util.Max(0, nColsBeforeStart)) > maxWidth && vloc.X > w.gutterOffset {
+			if vloc.X+wordwidth > maxWidth && vloc.X > w.gutterOffset {
 				for vloc.X < maxWidth {
 					draw(' ', nil, config.DefStyle, false, false, true)
 				}

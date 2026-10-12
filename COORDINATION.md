@@ -18,7 +18,7 @@ Merge to `main` only via small reviewed merges, rebased on `main` first.
 |----|------|-------|--------|---------------|--------|---------|
 | T0 | Phase 1 recon, plan, API draft, PROJECT.md | recon | — | `PLAN.md`, `docs/API.md`, `COORDINATION.md`, `PROJECT.md` | done | 2026-10-12T12:30-04:00 |
 | T1 | Decoration storage + edit semantics + Buffer API methods | A (Claude, chat) | `agent-a/decorations-core` | `internal/buffer/decorations.go`, `decorations_test.go` (new), `internal/buffer/line_array.go`, `internal/config/settings.go`, `runtime/help/options.md` | **done — merged to main (review waived by Marcus)** | 2026-10-12T12:20-04:00 |
-| T2 | Conceal rendering + reveal-on-cursor + horizontal mapping | Codex (assigned by Marcus) | `agent-codex/conceal-render` | `internal/display/bufwindow.go` (glyph loop, `getStartInfo`, `LocFromVisual`, minimal prerequisite skeleton), `internal/display/conceal.go`, `internal/display/conceal_test.go` (new) | done — implementation tested; review and T3 integration pending | 2026-10-12T12:42:27-04:00 |
+| T2 | Conceal rendering + reveal-on-cursor + horizontal mapping | Codex (assigned by Marcus) | `agent-codex/conceal-render` | `internal/display/bufwindow.go` (glyph loop, `getStartInfo`, `LocFromVisual`, minimal prerequisite skeleton), `internal/display/conceal.go`, `internal/display/conceal_test.go` (new) | done — Claude review fixes tested; merge and T3 integration pending | 2026-10-12T12:42:27-04:00 |
 | T3 | Row model: hidden lines + virtual rows in scroll/diff/mapping | B | `agent-b/rows` | `internal/display/softwrap.go` | open | |
 | T4 | Virtual-row drawing + gutter | B | `agent-b/vlines-render` | `internal/display/bufwindow.go` (row loop / `wrap()` / gutter helpers, `Relocate`) | blocked by T1, T3 | |
 | T5 | Cursor up/down + mouse over virtual/hidden rows | B | `agent-b/cursor-move` | `internal/action/actions.go` (`MoveCursorUp/Down`, mouse handlers) | blocked by T3 | |
@@ -34,11 +34,15 @@ and adds a hook `w.concealAt(line, x)` returning `nil`. A then implements that h
 Whoever needs a change in the other's region posts a request below.
 
 ## Requests
+- 2026-10-12T13:31:52-04:00 T2 (Codex): reclaiming the same T2 files
+  for Claude's PR #1 fixes. No expansion into B's files or row-model work.
 - 2026-10-12T12:42:27-04:00 T2 (Codex): Marcus authorized preparing the minimal T4
   drawing skeleton prerequisite for T2. No virtual-row implementation or changes
   to B's `softwrap.go`, `Relocate`, gutter or action ownership are claimed.
   The prerequisite is commit `593db04f`: shared `drawRowGutter` plus a nil
-  `concealAt` hook, followed by T2's implementation in the next commit.
+  `concealAt` hook, followed by T2's implementation in the next commit. The
+  unused hook was subsequently removed per Claude's review; `concealGlyphs`
+  is the shared conceal drawing interface instead.
 - T3/T4 handoff: use `concealGlyphs(line)` (`nil` means the raw fast path; an
   empty non-nil slice means no displayed characters), `displayGlyph` source
   `col/end` + `visualX/width`, and `decorationSuppressed(line, group)`. Synthetic
@@ -60,6 +64,13 @@ Whoever needs a change in the other's region posts a request below.
 _(none)_
 
 ## Log
+- 2026-10-12T13:32:37-04:00 T2 review follow-up (Codex): addressed Claude's three
+  requested fixes in PR #1: removed unused `concealAt`, documented T3/T4
+  use of `decorationSuppressed`, restored upstream wrap condition, corrected
+  pushed status. Tests now exercise the actual glyph path instead of the removed
+  hook. Uncached display tests, `make test`, display race tests and `go build ./...`
+  pass. Claude's verdict was conditional approval after these fixes; PR remains
+  unmerged. T3 softwrap row-count/scroll/click integration is still pending.
 - 2026-10-12T12:54:42-04:00 T2 (Codex): implemented off-by-default conceal glyph rendering,
   theme styles, window-local cursor/selection/group reveal, concealed horizontal
   starts and non-softwrap clicks; no Lua API or T1 storage changes. `make build`,
@@ -67,7 +78,7 @@ _(none)_
   Added 12 display tests, including 80 drawing comparisons against substituted
   ordinary text and 40 Unicode/tab width cases. Minimal drawing prerequisite was
   explicitly authorized by Marcus; T3/T4/action files remain under B's ownership.
-  Awaiting independent review. Not merged to main, pushed, or installed as micro-dev.
+  Pushed as PR #1; not merged to main or installed as micro-dev.
   Real Windows Terminal behavior and wrapped navigation after T3 remain unverified.
 - 2026-10-12 12:35 T1 merged to `main` (fast-forward). Marcus waived the review for T1.
   T2 and T3 are now unblocked.
