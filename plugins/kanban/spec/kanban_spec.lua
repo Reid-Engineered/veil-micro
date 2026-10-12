@@ -203,6 +203,23 @@ for _, r in ipairs(prow) do if ulen(r) ~= ulen(prow[1]) then same2 = false end e
 check("pad: rows still equal width", same2)
 check("pad 0 is the old layout", string.find(layout(padb, 40, 0)[4], "☐ first", 1, true) ~= nil)
 
+-- excessive, negative and fractional padding never drops card text (narrow column)
+local narrow = findBoards(split("```kanban\n## A\n- [ ] abcdefghij\n```"))[1]
+for _, p in ipairs({ 0, 1, 6, 8, 100, -2, 1.7 }) do
+    local rws = layout(narrow, 12, p)
+    local text = ""
+    for i = 4, #rws - 1 do
+        -- row is "│ " .. content .. " │": take the content, drop the mark and spaces
+        local cell = string.match(rws[i], "^│ (.*) │$") or ""
+        text = text .. string.gsub(string.gsub(cell, "☐", ""), "%s", "")
+    end
+    check("pad " .. p .. ": all card text kept", text == "abcdefghij", text)
+    local w = ulen(rws[1])
+    for i = 2, #rws do
+        check("pad " .. p .. ": row width", ulen(rws[i]) == w, rws[i])
+    end
+end
+
 ------------------------------------------------------------------ moveCard
 boards = findBoards(obsidian)
 local e = moveCard(obsidian, boards[1], 1, 1, 1) -- "write parser" -> Doing

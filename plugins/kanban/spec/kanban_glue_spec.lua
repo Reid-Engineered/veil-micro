@@ -126,6 +126,19 @@ options["kanban.keys"] = false
 init()
 check("kanban.keys off binds nothing", next(bindings) == nil)
 
+------------------------------------------------------------------ enabled mid-session
+-- With kanban=false in settings.json micro never runs preinit(); `set kanban on`
+-- later calls only init(). The options must still exist with their defaults.
+for k in pairs(options) do options[k] = nil end
+options["kanban.keys"] = nil
+init()
+check("init alone registers kanban.margin", options["kanban.margin"] == 1, options["kanban.margin"])
+check("init alone registers kanban.glyphpad", options["kanban.glyphpad"] == 1, options["kanban.glyphpad"])
+check("init alone registers kanban.keys", options["kanban.keys"] == true)
+options["kanban.margin"] = 4
+init()
+check("re-registering keeps the user's value", options["kanban.margin"] == 4, options["kanban.margin"])
+
 if failures > 0 then
     error(failures .. " kanban glue spec failure(s)")
 end

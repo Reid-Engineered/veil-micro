@@ -301,7 +301,7 @@ local STYLE_DONE = "comment"
 -- lack these symbols and draw them from a fallback font about two cells wide,
 -- spilling over the next cell; a padding space keeps the text clear of it.
 function layout(board, width, markPad)
-    markPad = markPad or 0
+    markPad = math.max(0, math.floor(tonumber(markPad) or 0))
     local cols = board.columns
     local n = #cols
     -- each column: │ + space + content + space ; plus one closing │
@@ -312,6 +312,9 @@ function layout(board, width, markPad)
         content = MAX_CONTENT
     end
     local inner = content + 2
+    -- keep at least one character of card text per line: mark (1) + gap
+    -- (1 + markPad) + text (>= 1) must fit in `content`
+    markPad = math.min(markPad, content - 3)
 
     -- per-column cell lines: { text = ..., kind = "todo"|"done"|"plain"|"cont-..." }
     local cells, height = {}, 0
@@ -326,7 +329,7 @@ function layout(board, width, markPad)
                 mark, kind = "☐" .. gap, "todo"
             end
             local indent = string.rep(" ", 2 + markPad) -- continuation lines align with the text
-            local wrapped = wrap(k.text, math.max(1, content - 2 - markPad))
+            local wrapped = wrap(k.text, content - 2 - markPad)
             for j, w in ipairs(wrapped) do
                 if j == 1 then
                     table.insert(list, { text = mark .. w, kind = kind, first = true })
@@ -785,8 +788,10 @@ local function enableFor(buf)
     end
 end
 
-function preinit()
-    -- registered in preinit so a value in settings.json is applied before init()
+-- RegisterGlobalOption is idempotent and keeps a value already set (e.g. from
+-- settings.json), so this runs from both preinit() and init(): a plugin that
+-- starts disabled and is enabled later (`set kanban on`) only gets init().
+local function registerOptions()
     config.RegisterGlobalOption("kanban", "keys", true)
     -- lines around a board that still count as "in" it (0 = only its own lines)
     config.RegisterGlobalOption("kanban", "margin", 1)
@@ -794,7 +799,12 @@ function preinit()
     config.RegisterGlobalOption("kanban", "glyphpad", 1)
 end
 
+function preinit()
+    registerOptions()
+end
+
 function init()
+    registerOptions()
     enabled = true
     config.MakeCommand("kanban", command, config.NoComplete)
     if config.GetGlobalOption("kanban.keys") then

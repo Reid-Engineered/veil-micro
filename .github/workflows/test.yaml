@@ -25,3 +25,9 @@ jobs:
     - name: Test
       run: |
         make test
+
+    # veil fork only: plugin specs live outside ./internal and ./cmd, so
+    # `make test` (unchanged from upstream) doesn't run them.
+    - name: Test plugins
+      run: |
+        go test ./plugins/...

@@ -36,6 +36,12 @@ local function key(buf)
     return buf.AbsPath
 end
 
+-- concealdemo.glyphpad as a small non-negative integer
+local function glyphPad()
+    local n = math.floor(tonumber(config.GetGlobalOption("concealdemo.glyphpad")) or 0)
+    return math.max(0, math.min(n, 8))
+end
+
 -- Conceal "- [x]" / "* [ ]" / "+ [X]" (after any indentation) on every line.
 -- The matched prefix is plain ASCII, so Lua's byte offsets equal micro's
 -- character columns here. A general plugin would have to convert.
@@ -55,7 +61,7 @@ function scan(buf)
             -- Extra spaces after the glyph: fonts without ✔/☐ (e.g. Cascadia Mono)
             -- get them from a fallback font that draws them ~2 cells wide, which
             -- covers the following space and makes the text look glued on.
-            local gap = string.rep(" ", config.GetGlobalOption("concealdemo.glyphpad") or 0)
+            local gap = string.rep(" ", glyphPad())
             if mark == " " then
                 buf:AddConceal(y, indent, e, "☐" .. gap, "special", GROUP)
             else
@@ -126,12 +132,19 @@ local function enableFor(buf)
     end
 end
 
-function preinit()
+-- Idempotent, keeps an existing value; called from preinit() and init()
+-- because a plugin enabled mid-session (`set concealdemo on`) only gets init().
+local function registerOptions()
     -- extra spaces after ✔/☐ for fonts that draw them two cells wide
     config.RegisterGlobalOption("concealdemo", "glyphpad", 1)
 end
 
+function preinit()
+    registerOptions()
+end
+
 function init()
+    registerOptions()
     enabled = true
     config.AddRuntimeFile("concealdemo", config.RTHelp, "help/concealdemo.md")
     -- Startup opens the initial buffers before init(), and `set concealdemo on`

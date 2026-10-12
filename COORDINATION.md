@@ -84,6 +84,13 @@ Whoever needs a change in the other's region posts a request below.
 _(none)_
 
 ## Log
+- 2026-10-12T18:25-04:00 Glyph padding (Claude, chat): fixed Codex's PR #8 P2s. (1) padding is
+  normalized to a non-negative integer and clamped per column so at least one text character
+  fits (`kanban`), and to 0..8 (`concealdemo`). (2) options are registered from init() too
+  (idempotent, keeps user values): a plugin enabled mid-session never gets preinit(); kanban had
+  the same gap for keys/margin/glyphpad. New `plugins/concealdemo/spec/`. CI correction: the
+  workflow only ran `make test` (./internal, ./cmd), so plugin specs never ran in CI; added a
+  `go test ./plugins/...` step to `.github/workflows/test.yaml` (fork-only, Makefile untouched).
 - 2026-10-12T18:05-04:00 Glyph padding (Claude, chat, branch `agent-claude/glyph-padding`, files
   `plugins/concealdemo/**`, `plugins/kanban/**`): Marcus saw ✔/☐ text "smushed" in Windows
   Terminal (fallback-font glyphs ~2 cells wide over a 1-cell slot). Added `concealdemo.glyphpad`
