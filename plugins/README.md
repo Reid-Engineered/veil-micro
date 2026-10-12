@@ -12,9 +12,14 @@ compiled into micro and enabled by default for every user.
 ## Try them
 
 ```bash
-go build -o ~/.local/bin/micro-dev ./cmd/micro
+make build && install -m 755 micro ~/.local/bin/micro-dev
 plugins/install-dev.sh
 micro-dev -config-dir ~/.config/micro-dev plugins/concealdemo/demo.md
 ```
+
+Use `make build`, not a bare `go build ./cmd/micro`. `make build` first runs
+`go generate ./runtime`, which creates the syntax header files (`*.hdr`, not
+checked in). Without them micro can't detect filetypes, `.md` files open as
+`unknown`, and concealdemo never switches on.
 
 Inside micro-dev, `help concealdemo` and `help vlinedemo` show usage.

@@ -1,4 +1,4 @@
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 
 -- vlinedemo: draws a box of virtual lines below the cursor line, to test the
 -- veil virtual-lines rendering (T3/T4). Until those land, the decorations
@@ -12,6 +12,7 @@ VERSION = "0.1.0"
 local micro = import("micro")
 local config = import("micro/config")
 local utf8 = import("unicode/utf8")
+local strings = import("strings")
 
 local GROUP = "vlinedemo"
 
@@ -20,9 +21,11 @@ local function width(s)
 end
 
 function vlinebox(bp, args)
-    local text = "virtual lines work"
-    if #args > 0 then
-        text = table.concat(args, " ")
+    -- Command arguments arrive as a Go []string (Lua userdata, not a table),
+    -- so join them with Go's strings.Join rather than table.concat.
+    local text = strings.Join(args, " ")
+    if text == "" then
+        text = "virtual lines work"
     end
     local inner = width(text) + 2
     local rows = {
