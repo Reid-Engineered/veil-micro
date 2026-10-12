@@ -538,3 +538,43 @@ func (w *BufWindow) concealedLoc(vloc VLoc, glyphs []displayGlyph) buffer.Loc {
 	}
 	return eol
 }
+
+// CursorScroll moves by visual rows, then skips synthetic rows in the direction
+// of travel. At an edge containing only virtual rows, stay on the last editable
+// row. Mouse mapping intentionally keeps Scroll's virtual-row behavior.
+func (w *BufWindow) CursorScroll(s SLoc, n int) SLoc {
+	done := w.beginRowModel()
+	defer done()
+	target := w.Scroll(s, n)
+	if n == 0 || target.Row < w.getTextRowCount(target.Line) {
+		return target
+	}
+	if n < 0 {
+		for line := target.Line; line >= 0; line-- {
+			if count := w.getTextRowCount(line); count > 0 {
+				return SLoc{line, count - 1}
+			}
+		}
+	} else {
+		for line := target.Line + 1; line < w.Buf.LinesNum(); line++ {
+			if w.getTextRowCount(line) > 0 {
+				return SLoc{line, 0}
+			}
+		}
+	}
+	// No editable row in that direction: find the nearest boundary text row.
+	if n > 0 {
+		for line := target.Line; line >= 0; line-- {
+			if count := w.getTextRowCount(line); count > 0 {
+				return SLoc{line, count - 1}
+			}
+		}
+	} else {
+		for line := target.Line; line < w.Buf.LinesNum(); line++ {
+			if w.getTextRowCount(line) > 0 {
+				return SLoc{line, 0}
+			}
+		}
+	}
+	return s
+}

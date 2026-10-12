@@ -231,6 +231,13 @@ func (w *BufWindow) Relocate() bool {
 	b := w.Buf
 	height := w.bufHeight
 	ret := false
+	done := w.beginRowModel()
+	defer done()
+	start := w.Scroll(w.StartLine, 0)
+	if start != w.StartLine {
+		w.StartLine = start
+		ret = true
+	}
 	activeC := w.Buf.GetActiveCursor()
 	scrollmargin := int(b.Settings["scrollmargin"].(float64))
 
@@ -255,7 +262,7 @@ func (w *BufWindow) Relocate() bool {
 
 	// horizontal relocation (scrolling)
 	if !b.Settings["softwrap"].(bool) {
-		cx := activeC.GetVisualX(false)
+		cx := w.VLocFromLoc(activeC.Loc).VisualX
 		rw := runewidth.RuneWidth(activeC.RuneUnder(activeC.X))
 		if rw == 0 {
 			rw = 1 // tab or newline
@@ -418,6 +425,7 @@ func (w *BufWindow) displayBuffer() {
 
 	w.frameReveal = w.computeDecorationReveal()
 	defer func() { w.frameReveal = nil }()
+	w.StartLine = w.Scroll(w.StartLine, 0)
 
 	maxWidth := w.gutterOffset + w.bufWidth
 
@@ -472,10 +480,8 @@ func (w *BufWindow) displayBuffer() {
 	// this represents the current draw position
 	// within the current window
 	vloc := buffer.Loc{X: 0, Y: 0}
-	if softwrap {
-		// the start line may be partially out of the current window
-		vloc.Y = -w.StartLine.Row
-	}
+	// Row offsets also apply to virtual rows with softwrap disabled.
+	vloc.Y = -w.StartLine.Row
 
 	// this represents the current draw position in the buffer (char positions)
 	bloc := buffer.Loc{X: -1, Y: w.StartLine.Line}
@@ -507,7 +513,12 @@ func (w *BufWindow) displayBuffer() {
 		}
 	}
 
-	for ; vloc.Y < w.bufHeight; vloc.Y++ {
+	for ; vloc.Y < w.bufHeight && bloc.Y < b.LinesNum(); vloc.Y++ {
+		if w.lineHidden(bloc.Y) {
+			vloc.Y = w.drawVirtualRows(bloc.Y, vloc.Y) - 1
+			bloc.Y++
+			continue
+		}
 		vloc.X = 0
 
 		currentLine := false
@@ -833,6 +844,9 @@ func (w *BufWindow) displayBuffer() {
 		if glyphs != nil && glyphIndex == len(glyphs) {
 			bloc.X = blineLen
 		}
+		if vloc.Y >= w.bufHeight {
+			break
+		}
 		style := config.DefStyle
 		for _, c := range cursors {
 			if b.Settings["cursorline"].(bool) && w.active &&
@@ -843,7 +857,7 @@ func (w *BufWindow) displayBuffer() {
 				}
 			}
 		}
-		for i := vloc.X; i < maxWidth; i++ {
+		for i := vloc.X; vloc.Y >= 0 && i < maxWidth; i++ {
 			curStyle := style
 			if s, ok := config.Colorscheme["color-column"]; ok {
 				if colorcolumn != 0 && i-w.gutterOffset+w.StartCol == colorcolumn {
@@ -860,6 +874,7 @@ func (w *BufWindow) displayBuffer() {
 			draw(drawrune, nil, drawstyle, true, true, preservebg)
 		}
 
+		vloc.Y = w.drawVirtualRows(bloc.Y, vloc.Y+1) - 1
 		bloc.X = w.StartCol
 		bloc.Y++
 		if bloc.Y >= b.LinesNum() {
