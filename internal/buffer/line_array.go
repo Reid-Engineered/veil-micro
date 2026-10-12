@@ -83,6 +83,9 @@ type LineArray struct {
 	// decoration state, see decorations.go
 	decoActive  bool
 	revealModes map[string]RevealMode
+	// per-group reveal margins (see SetRevealMargin) and their maximum
+	revealMargins   map[string]int
+	maxRevealMargin int
 }
 
 // Append efficiently appends lines together

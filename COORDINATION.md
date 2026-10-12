@@ -69,6 +69,9 @@ Whoever needs a change in the other's region posts a request below.
   Until T3 consumes these helpers, wrapped navigation uses the raw-text row model.
 
 ## API changes
+- 2026-10-12 v0.4 (Claude, requested by Marcus; additive): `SetRevealMargin(group, lines)`,
+  `GroupRevealMargin(group)`, `RevealMarginMax()`. A "group"-mode group also reveals while a
+  cursor/selected line is within `lines` lines of it. Used by kanban (`kanban.margin`, default 1).
 - 2026-10-12 v0.2 (approved by Marcus): rune columns confirmed; `ConcealLines` confirmed;
   per-cell colour for virtual lines: `SetVirtualLines(line, texts, group)` drops the
   `styles` arg, new `StyleVirtualLine(line, row, startCol, endCol, style, group)`.
@@ -81,6 +84,15 @@ Whoever needs a change in the other's region posts a request below.
 _(none)_
 
 ## Log
+- 2026-10-12T17:50-04:00 Reveal margin (Claude, chat): fixed Codex's PR #7 P2. `set kanban.margin N`
+  now redraws open boards (micro calls onBufferOptionChanged per buffer after a global set).
+  New `spec/kanban_glue_spec.lua` drives the plugin glue with stand-in micro modules (startup
+  order, bindings, margin change, deinit, filetype, keys off); it fails on 06af01a6 and passes now.
+- 2026-10-12T17:45-04:00 Reveal margin (Claude, chat, branch `agent-claude/reveal-margin`, stacked
+  on PR #6): touches `internal/buffer/decorations.go`, `line_array.go` (fields), and T2's
+  `internal/display/conceal.go` (`computeDecorationReveal` only; T2 is merged/done) plus tests,
+  API.md and the kanban plugin. Requested by Marcus: board shouldn't redraw on the first line
+  past it.
 - 2026-10-12T17:30-04:00 T7 follow-up (Claude, chat, branch `agent-claude/kanban-keys`, files
   `plugins/kanban/**`, `plugins/README.md`): Marcus chose arrow-based keys. On a card:
   Alt-Right/Left move between columns, Alt-Up/Down reorder within a column (new

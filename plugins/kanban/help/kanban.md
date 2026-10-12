@@ -21,6 +21,12 @@ is a card; indented lines under a card belong to it.
 While no cursor is inside a board, it is drawn as side-by-side columns. Move
 the cursor into it (or click it) to edit the raw markdown.
 
+The board stays in raw markdown while the cursor is within `kanban.margin`
+lines of it (default `1`), so stepping one line past the board doesn't redraw
+it right away; it redraws when you move two lines away. `set kanban.margin 0`
+redraws as soon as you leave the board's own lines; open boards update
+immediately.
+
 ## Keys and commands
 
 With the cursor on a card (the board shows its markdown then):

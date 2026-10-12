@@ -617,6 +617,9 @@ function scan(buf)
     for i, b in ipairs(boards) do
         local g = "kanban:" .. i
         buf:SetRevealMode(g, "group")
+        -- keep the raw markdown up while the cursor is within this many lines of
+        -- the board, so stepping one line off it doesn't redraw it immediately
+        buf:SetRevealMargin(g, config.GetGlobalOption("kanban.margin"))
         buf:ConcealLines(b.first, b.last, g)
         local rows, spans = layout(b, width)
         buf:SetVirtualLines(b.first, rows, g)
@@ -779,6 +782,8 @@ end
 function preinit()
     -- registered in preinit so a value in settings.json is applied before init()
     config.RegisterGlobalOption("kanban", "keys", true)
+    -- lines around a board that still count as "in" it (0 = only its own lines)
+    config.RegisterGlobalOption("kanban", "margin", 1)
 end
 
 function init()
@@ -811,6 +816,12 @@ function onBufferOpen(buf)
 end
 
 function onBufferOptionChanged(buf, option, old, new)
+    -- `set kanban.margin N` updates the global value, then calls this for every
+    -- open buffer: redraw so existing boards pick up the new margin now.
+    if option == "kanban.margin" then
+        enableFor(buf)
+        return
+    end
     if option ~= "filetype" then
         return
     end
