@@ -410,3 +410,56 @@ func TestConcealFrameRevealDoesNotLeakAfterDrawing(t *testing.T) {
 		t.Fatal("conceal failed to resume")
 	}
 }
+
+// A "group" reveal margin keeps a hidden block revealed while the cursor is
+// within that many lines of it (the kanban plugin uses 1, so stepping one
+// line off a board doesn't redraw it).
+func TestRevealMarginKeepsGroupRevealedNearby(t *testing.T) {
+	w, _ := concealWindow(t, "a\nb\nblock1\nblock2\nc\nd\ne", 20)
+	w.Buf.ConcealLines(2, 3, "board")
+	w.Buf.SetRevealMode("board", "group")
+	cursor := w.Buf.GetActiveCursor()
+
+	hidden := func(y int) bool {
+		w.frameReveal = nil
+		return w.lineHidden(y)
+	}
+
+	cursor.Loc = buffer.Loc{Y: 4}
+	if !hidden(2) {
+		t.Fatal("margin 0: one line below must not reveal")
+	}
+
+	w.Buf.SetRevealMargin("board", 1)
+	cursor.Loc = buffer.Loc{Y: 4} // one line below block2
+	if hidden(2) || hidden(3) {
+		t.Fatal("margin 1: one line below should keep the block revealed")
+	}
+	cursor.Loc = buffer.Loc{Y: 1} // one line above block1
+	if hidden(2) {
+		t.Fatal("margin 1: one line above should reveal")
+	}
+	cursor.Loc = buffer.Loc{Y: 5} // two lines below
+	if !hidden(2) {
+		t.Fatal("margin 1: two lines below must hide again")
+	}
+	cursor.Loc = buffer.Loc{Y: 0} // two lines above
+	if !hidden(3) {
+		t.Fatal("margin 1: two lines above must hide again")
+	}
+
+	// a selection line counts like a cursor line
+	cursor.Loc = buffer.Loc{Y: 6}
+	cursor.CurSelection = [2]buffer.Loc{{X: 0, Y: 4}, {X: 1, Y: 6}}
+	if hidden(2) {
+		t.Fatal("selection within the margin should reveal")
+	}
+	cursor.ResetSelection()
+
+	// margins only apply to "group" mode groups
+	w.Buf.SetRevealMode("board", "line")
+	cursor.Loc = buffer.Loc{Y: 4}
+	if !hidden(3) {
+		t.Fatal("line mode must ignore the margin")
+	}
+}

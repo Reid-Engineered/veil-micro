@@ -232,6 +232,42 @@ func (la *LineArray) SetRevealMode(group, mode string) bool {
 	return true
 }
 
+// MaxRevealMargin caps SetRevealMargin. Reveal checks scan this many lines
+// around each cursor per frame, so keep it small.
+const MaxRevealMargin = 10
+
+// SetRevealMargin makes a "group"-mode group also reveal while a cursor or
+// selection is within `lines` lines of any line carrying one of its
+// decorations (0, the default, means only on those lines). This keeps, say,
+// a rendered block from snapping back the moment the cursor steps off its
+// edge. Values are clamped to [0, MaxRevealMargin]; returns false if negative.
+func (la *LineArray) SetRevealMargin(group string, lines int) bool {
+	la.lock.Lock()
+	defer la.lock.Unlock()
+
+	if lines < 0 {
+		return false
+	}
+	if lines > MaxRevealMargin {
+		lines = MaxRevealMargin
+	}
+	if la.revealMargins == nil {
+		la.revealMargins = make(map[string]int)
+	}
+	if lines == 0 {
+		delete(la.revealMargins, group)
+	} else {
+		la.revealMargins[group] = lines
+	}
+	la.maxRevealMargin = 0
+	for _, m := range la.revealMargins {
+		if m > la.maxRevealMargin {
+			la.maxRevealMargin = m
+		}
+	}
+	return true
+}
+
 // ClearDecorations removes every decoration of the given group, or of all
 // groups if group is "". Reveal modes are kept.
 func (la *LineArray) ClearDecorations(group string) {
@@ -326,6 +362,17 @@ func (la *LineArray) LineGroups(line int) []string {
 // GroupRevealMode returns the reveal mode of a group
 func (la *LineArray) GroupRevealMode(group string) RevealMode {
 	return la.revealModes[group]
+}
+
+// GroupRevealMargin returns a group's reveal margin in lines (0 if unset)
+func (la *LineArray) GroupRevealMargin(group string) int {
+	return la.revealMargins[group]
+}
+
+// RevealMarginMax returns the largest reveal margin of any group, so the
+// display can skip the margin scan entirely when it is 0.
+func (la *LineArray) RevealMarginMax() int {
+	return la.maxRevealMargin
 }
 
 // dropConceals removes the conceals of lines [y1, y2]; called after an edit

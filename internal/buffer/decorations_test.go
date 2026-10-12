@@ -211,3 +211,26 @@ func TestDecorationsFromLua(t *testing.T) {
 	assert.Equal(t, "└──┘", b.LineVirtualBlocks(0)[0].Rows[1].Text)
 	assert.Equal(t, []string{"k"}, b.LineHiddenBy(3))
 }
+
+func TestRevealMargin(t *testing.T) {
+	b := decoBuf()
+	assert.Equal(t, 0, b.GroupRevealMargin("k"))
+	assert.Equal(t, 0, b.RevealMarginMax())
+
+	assert.True(t, b.SetRevealMargin("k", 2))
+	assert.True(t, b.SetRevealMargin("j", 1))
+	assert.Equal(t, 2, b.GroupRevealMargin("k"))
+	assert.Equal(t, 2, b.RevealMarginMax())
+
+	assert.True(t, b.SetRevealMargin("big", 999))
+	assert.Equal(t, MaxRevealMargin, b.GroupRevealMargin("big"), "clamped")
+	assert.False(t, b.SetRevealMargin("k", -1))
+	assert.Equal(t, 2, b.GroupRevealMargin("k"), "rejected value leaves the old one")
+
+	assert.True(t, b.SetRevealMargin("big", 0))
+	assert.Equal(t, 0, b.GroupRevealMargin("big"))
+	assert.Equal(t, 2, b.RevealMarginMax(), "max recomputed after removal")
+
+	b.ClearDecorations("")
+	assert.Equal(t, 2, b.GroupRevealMargin("k"), "margins survive clearing, like modes")
+}

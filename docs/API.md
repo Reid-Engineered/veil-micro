@@ -1,4 +1,4 @@
-# Decorations Lua API (v0.3, storage implemented in T1)
+# Decorations Lua API (v0.4)
 
 Status: **draft, Phase 1**. Any change to signatures or semantics must be announced in
 `COORDINATION.md` (section "API changes") *before* it is merged, because the plugin
@@ -79,6 +79,14 @@ buf:StyleVirtualLine(12, 0, 13, 17, "kanban.tag",   "kanban:12")
   suppressed. The kanban plugin uses one group per block in this mode.
 
 Returns `false` for an unknown mode. Modes survive `ClearDecorations`.
+
+### `buf:SetRevealMargin(group, lines) -> bool`
+For a `"group"`-mode group: also reveal the whole group while any cursor or
+selected line is within `lines` lines of a line carrying one of its decorations
+(above or below). `0` (default) means only its own lines. Clamped to
+`[0, 10]`; returns `false` for a negative value. Ignored for `"line"` mode.
+Margins, like modes, survive `ClearDecorations`. Read back with
+`buf:GroupRevealMargin(group)`.
 
 ### `buf:ClearDecorations(group)`
 Remove every decoration in `group`. `""` clears all groups.

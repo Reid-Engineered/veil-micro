@@ -48,6 +48,25 @@ func (w *BufWindow) computeDecorationReveal() *decorationReveal {
 			}
 		}
 	}
+	// Reveal margins: a "group"-mode group with margin m also reveals while a
+	// cursor or selected line is within m lines of one of its lines.
+	if widest := w.Buf.RevealMarginMax(); widest > 0 {
+		for line := range result.lines {
+			for d := 1; d <= widest; d++ {
+				for _, near := range [2]int{line - d, line + d} {
+					if near < 0 || near >= w.Buf.LinesNum() {
+						continue
+					}
+					for _, group := range w.Buf.LineGroups(near) {
+						if w.Buf.GroupRevealMode(group) == buffer.RevealGroup &&
+							w.Buf.GroupRevealMargin(group) >= d {
+							result.groups[group] = true
+						}
+					}
+				}
+			}
+		}
+	}
 	return result
 }
 
