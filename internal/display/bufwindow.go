@@ -29,6 +29,9 @@ type BufWindow struct {
 	hasMessage       bool
 	maxLineNumLength int
 	drawDivider      bool
+
+	// Reveal state is computed once per draw, then discarded before cursor input.
+	frameReveal *decorationReveal
 }
 
 // NewBufWindow creates a new window at a location in the screen with a width and height
@@ -173,6 +176,13 @@ func (w *BufWindow) updateDisplayInfo() {
 }
 
 func (w *BufWindow) getStartInfo(n, lineN int) ([]byte, int, int, *tcell.Style) {
+	return w.getStartInfoWithGlyphs(n, lineN, w.concealGlyphs(lineN))
+}
+
+func (w *BufWindow) getStartInfoWithGlyphs(n, lineN int, glyphs []displayGlyph) ([]byte, int, int, *tcell.Style) {
+	if glyphs != nil {
+		return w.concealStartInfo(n, lineN, glyphs)
+	}
 	tabsize := util.IntOpt(w.Buf.Settings["tabsize"])
 	width := 0
 	bloc := buffer.Loc{0, lineN}
@@ -276,6 +286,11 @@ func (w *BufWindow) LocFromVisual(svloc buffer.Loc) buffer.Loc {
 		SLoc:    w.Scroll(w.StartLine, svloc.Y-w.Y),
 		VisualX: vx + w.StartCol,
 	}
+	if !w.Buf.Settings["softwrap"].(bool) {
+		if loc, ok := w.concealLocFromVisual(vloc.Line, vloc.VisualX); ok {
+			return loc
+		}
+	}
 	return w.LocFromVLoc(vloc)
 }
 
@@ -359,6 +374,25 @@ func (w *BufWindow) drawLineNum(lineNumStyle tcell.Style, softwrapped bool, vloc
 	}
 }
 
+// drawRowGutter draws the common first/wrapped-row skeleton. T4 can reuse it
+// when extending the row loop; virtual rows keep a separate blank gutter.
+func (w *BufWindow) drawRowGutter(style tcell.Style, wrapped bool, vloc, bloc *buffer.Loc) {
+	vloc.X = 0
+	if vloc.Y < 0 {
+		vloc.X = w.gutterOffset
+		return
+	}
+	if w.hasMessage {
+		w.drawGutter(vloc, bloc)
+	}
+	if w.Buf.Settings["diffgutter"].(bool) {
+		w.drawDiffGutter(style, wrapped, vloc, bloc)
+	}
+	if w.Buf.Settings["ruler"].(bool) {
+		w.drawLineNum(style, wrapped, vloc, bloc)
+	}
+}
+
 // getStyle returns the highlight style for the given character position
 // If there is no change to the current highlight style it just returns that
 func (w *BufWindow) getStyle(style tcell.Style, bloc buffer.Loc) (tcell.Style, bool) {
@@ -386,6 +420,9 @@ func (w *BufWindow) displayBuffer() {
 	if w.Height <= 0 || w.Width <= 0 {
 		return
 	}
+
+	w.frameReveal = w.computeDecorationReveal()
+	defer func() { w.frameReveal = nil }()
 
 	maxWidth := w.gutterOffset + w.bufWidth
 
@@ -491,21 +528,7 @@ func (w *BufWindow) displayBuffer() {
 			s = curNumStyle
 		}
 
-		if vloc.Y >= 0 {
-			if w.hasMessage {
-				w.drawGutter(&vloc, &bloc)
-			}
-
-			if b.Settings["diffgutter"].(bool) {
-				w.drawDiffGutter(s, false, &vloc, &bloc)
-			}
-
-			if b.Settings["ruler"].(bool) {
-				w.drawLineNum(s, false, &vloc, &bloc)
-			}
-		} else {
-			vloc.X = w.gutterOffset
-		}
+		w.drawRowGutter(s, false, &vloc, &bloc)
 
 		bline := b.LineBytes(bloc.Y)
 		blineLen := util.CharacterCount(bline)
@@ -513,7 +536,9 @@ func (w *BufWindow) displayBuffer() {
 		leadingwsEnd := len(util.GetLeadingWhitespace(bline))
 		trailingwsStart := blineLen - util.CharacterCount(util.GetTrailingWhitespace(bline))
 
-		line, nColsBeforeStart, bslice, startStyle := w.getStartInfo(w.StartCol, bloc.Y)
+		glyphs := w.concealGlyphs(bloc.Y)
+		glyphIndex := displayGlyphStart(glyphs, w.StartCol)
+		line, nColsBeforeStart, bslice, startStyle := w.getStartInfoWithGlyphs(w.StartCol, bloc.Y, glyphs)
 		if startStyle != nil {
 			curStyle = *startStyle
 		}
@@ -687,30 +712,16 @@ func (w *BufWindow) displayBuffer() {
 		}
 
 		wrap := func() {
-			vloc.X = 0
-
-			if vloc.Y >= 0 {
-				if w.hasMessage {
-					w.drawGutter(&vloc, &bloc)
-				}
-				if b.Settings["diffgutter"].(bool) {
-					w.drawDiffGutter(lineNumStyle, true, &vloc, &bloc)
-				}
-
-				// This will draw an empty line number because the current line is wrapped
-				if b.Settings["ruler"].(bool) {
-					w.drawLineNum(lineNumStyle, true, &vloc, &bloc)
-				}
-			} else {
-				vloc.X = w.gutterOffset
-			}
+			w.drawRowGutter(lineNumStyle, true, &vloc, &bloc)
 		}
 
 		type glyph struct {
-			r     rune
-			combc []rune
-			style tcell.Style
-			width int
+			r               rune
+			combc           []rune
+			style           tcell.Style
+			width           int
+			col, end, linex int
+			synthetic       bool
 		}
 
 		var word []glyph
@@ -722,33 +733,44 @@ func (w *BufWindow) displayBuffer() {
 		wordwidth := 0
 
 		totalwidth := w.StartCol - nColsBeforeStart
-		for len(line) > 0 && vloc.X < maxWidth {
-			r, combc, size := util.DecodeCharacter(line)
-			line = line[size:]
-
-			loc := buffer.Loc{X: bloc.X + len(word), Y: bloc.Y}
-			curStyle, _ = w.getStyle(curStyle, loc)
-
-			width := 0
-
+		styleCol := bslice - 1
+		for ((glyphs == nil && len(line) > 0) || glyphIndex < len(glyphs)) && vloc.X < maxWidth {
+			var r rune
+			var combc []rune
+			col, end := bloc.X+len(word), bloc.X+len(word)+1
 			linex := totalwidth
-			switch r {
-			case '\t':
-				ts := tabsize - (totalwidth % tabsize)
-				width = util.Min(ts, maxWidth-vloc.X)
-				totalwidth += ts
-			default:
-				width = runewidth.RuneWidth(r)
-				totalwidth += width
+			synthetic := false
+			styleName := ""
+			if glyphs != nil {
+				g := glyphs[glyphIndex]
+				glyphIndex++
+				r, combc, col, end = g.r, g.combc, g.col, g.end
+				synthetic, styleName = g.synthetic, g.style
+			} else {
+				var size int
+				r, combc, size = util.DecodeCharacter(line)
+				line = line[size:]
 			}
-
-			word = append(word, glyph{r, combc, curStyle, width})
+			for styleCol < col {
+				styleCol++
+				curStyle, _ = w.getStyle(curStyle, buffer.Loc{X: styleCol, Y: bloc.Y})
+			}
+			style := curStyle
+			if synthetic {
+				style = concealStyle(styleName)
+			}
+			width := displayRuneWidth(r, totalwidth, tabsize)
+			totalwidth += width
+			if r == '\t' {
+				width = util.Min(width, maxWidth-vloc.X)
+			}
+			word = append(word, glyph{r, combc, style, width, col, end, linex, synthetic})
 			wordwidth += width
 
 			// Collect a complete word to know its width.
 			// If wordwrap is off, every single character is a complete "word".
 			if wordwrap {
-				if !util.IsWhitespace(r) && len(line) > 0 && wordwidth < w.bufWidth {
+				if !util.IsWhitespace(r) && ((glyphs == nil && len(line) > 0) || glyphIndex < len(glyphs)) && wordwidth < w.bufWidth {
 					continue
 				}
 			}
@@ -772,19 +794,28 @@ func (w *BufWindow) displayBuffer() {
 			}
 
 			for _, r := range word {
-				drawrune, drawstyle, preservebg := getRuneStyle(r.r, r.style, 0, linex, false)
-				draw(drawrune, r.combc, drawstyle, true, true, preservebg)
-
-				// Draw extra characters for tabs or wide runes
-				for i := 1; i < r.width; i++ {
-					if r.r == '\t' {
-						drawrune, drawstyle, preservebg = getRuneStyle('\t', r.style, i, linex+i, false)
-					} else {
-						drawrune, drawstyle, preservebg = getRuneStyle(' ', r.style, i, linex+i, true)
-					}
-					draw(drawrune, nil, drawstyle, true, false, preservebg)
+				bloc.X = r.col
+				drawrune, drawstyle, preservebg := r.r, r.style, false
+				if !r.synthetic {
+					drawrune, drawstyle, preservebg = getRuneStyle(r.r, r.style, 0, r.linex, false)
+				} else if r.r == '\t' {
+					drawrune = ' '
 				}
-				bloc.X++
+				draw(drawrune, r.combc, drawstyle, !r.synthetic, !r.synthetic, preservebg)
+
+				// Draw extra cells for tabs or wide characters. Replacement text
+				// bypasses selection, search, brace, whitespace and cursor styling.
+				for i := 1; i < r.width; i++ {
+					if r.synthetic {
+						drawrune, drawstyle, preservebg = ' ', r.style, false
+					} else if r.r == '\t' {
+						drawrune, drawstyle, preservebg = getRuneStyle('\t', r.style, i, r.linex+i, false)
+					} else {
+						drawrune, drawstyle, preservebg = getRuneStyle(' ', r.style, i, r.linex+i, true)
+					}
+					draw(drawrune, nil, drawstyle, !r.synthetic, false, preservebg)
+				}
+				bloc.X = r.end
 			}
 
 			word = word[:0]
@@ -804,6 +835,9 @@ func (w *BufWindow) displayBuffer() {
 			}
 		}
 
+		if glyphs != nil && glyphIndex == len(glyphs) {
+			bloc.X = blineLen
+		}
 		style := config.DefStyle
 		for _, c := range cursors {
 			if b.Settings["cursorline"].(bool) && w.active &&
