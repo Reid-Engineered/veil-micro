@@ -17,7 +17,7 @@ Merge to `main` only via small reviewed merges, rebased on `main` first.
 | ID | Task | Agent | Branch | Files (owned) | Status | Claimed |
 |----|------|-------|--------|---------------|--------|---------|
 | T0 | Phase 1 recon, plan, API draft, PROJECT.md | recon | — | `PLAN.md`, `docs/API.md`, `COORDINATION.md`, `PROJECT.md` | done | 2026-10-12T12:30-04:00 |
-| T1 | Decoration storage + edit semantics + Buffer API methods | A (Claude, chat) | `agent-a/decorations-core` | `internal/buffer/decorations.go`, `decorations_test.go` (new), `internal/buffer/line_array.go`, `internal/config/settings.go`, `runtime/help/options.md` | **written, awaiting build/test on WSL + review** | 2026-10-12T12:20-04:00 |
+| T1 | Decoration storage + edit semantics + Buffer API methods | A (Claude, chat) | `agent-a/decorations-core` | `internal/buffer/decorations.go`, `decorations_test.go` (new), `internal/buffer/line_array.go`, `internal/config/settings.go`, `runtime/help/options.md` | **tests pass on WSL; awaiting review before merge** | 2026-10-12T12:20-04:00 |
 | T2 | Conceal rendering + reveal-on-cursor + horizontal mapping | A | `agent-a/conceal-render` | `internal/display/bufwindow.go` (`displayBuffer` glyph loop, `getStartInfo`), `internal/display/conceal.go` (new) | blocked by T1 | |
 | T3 | Row model: hidden lines + virtual rows in scroll/diff/mapping | B | `agent-b/rows` | `internal/display/softwrap.go` | blocked by T1 | |
 | T4 | Virtual-row drawing + gutter | B | `agent-b/vlines-render` | `internal/display/bufwindow.go` (row loop / `wrap()` / gutter helpers, `Relocate`) | blocked by T1, T3 | |
@@ -49,6 +49,8 @@ _(none)_
 _(none)_
 
 ## Log
+- 2026-10-12 12:31 T1: `go build ./...` + `go test ./internal/...` green on Marcus's WSL box.
+  Needs a review by a different agent, then merge to `main`.
 - 2026-10-12 T1 (Claude, chat): implemented on `agent-a/decorations-core`. `buffer.go` did
   NOT need changes (hook lives in `LineArray.insert/remove`), so it's released. Added
   the `conceal` entry to `runtime/help/options.md`. Not compiled: the chat sandbox's

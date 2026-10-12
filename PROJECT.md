@@ -51,19 +51,21 @@ Sync the Project copy after merging to `main`.
 
 ## Status
 - Phase 1 Recon: **done** (2026-10-12).
-- Phase 2 Conceal: **T1 (storage + API) written** on `agent-a/decorations-core`,
-  untested. Next: apply patch, `go test ./internal/...` on WSL, review, then T2/T3.
+- Phase 2 Conceal: **T1 (storage + API) tests pass** on `agent-a/decorations-core`.
+  Next: review + merge T1, then T2 (conceal render) and T3 (row model) in parallel.
 - Phase 3 Virtual lines: not started (blocked by T1).
 - Phase 4 Kanban plugin: not started (can stub against API.md).
 - Phase 5 Polish: not started.
 - Upstream: issue/discussion not yet opened (do before Phase 2 PR).
 
 ## Open items
-- [ ] Baseline `go build` + `go test ./internal/...` on WSL (not verified yet), then same with T1.
+- [x] Baseline + T1 build/test green on WSL (2026-10-12).
 - [ ] Open upstream discussion with API v0.3.
-- [ ] Verify gopher-luar converts Lua tables → `[]string` (covered by `TestDecorationsFromLua`).
+- [x] gopher-luar converts Lua tables → `[]string` (`TestDecorationsFromLua` passes).
 
 ## Handoff log (newest first; one or two lines each)
+- 2026-10-12 · chat (Claude, agent A) · T1 tests green on WSL. Repo seeded on GitHub
+  (Reid-Engineered/veil-micro). Next: review T1, merge, start T2/T3.
 - 2026-10-12 · chat (Claude, agent A) · T1 written: decorations storage, API v0.3, 15 unit
   tests incl. a Lua call test. Not compiled here (Go modules blocked). Next: test on WSL.
 - 2026-10-12 · chat (recon) · Phase 1 delivered: PLAN.md, COORDINATION.md, API.md v0.2,
