@@ -51,12 +51,14 @@ Sync the Project copy after merging to `main`.
 
 ## Status
 - Phase 1 Recon: **done** (2026-10-12).
-- Phase 2 Conceal: T1 (storage + API) and **T2 (conceal rendering, PR #1) merged**.
-  T3 now implements conceal-aware wrapped counts/scrolling/clicks on
-  `agent-codex/rows`, tested and awaiting review.
-- Phase 3 Virtual lines: T3 row model implemented and tested; awaiting review.
-  T4 drawing and T5 cursor movement remain pending.
-- Phase 4 Kanban plugin: T6 demos merged as PR #2; T7 kanban not started.
+- Phase 2 Conceal: T1, T2 (PR #1) and T3 row model (PR #4) **merged**.
+- Phase 3 Virtual lines: T4 drawing and T5 vertical cursor/mouse integration
+  implemented on `agent-codex/vlines-movement`, build/tests/race checks pass;
+  PR #5 review fixes implemented and tested; awaiting re-review. Single arrows
+  enter hidden source to reveal it; virtual rows cannot hold a cursor.
+- Phase 4 Kanban plugin: T6 demos merged as PR #2; T7 kanban PR #3 awaits
+  T4/T5 re-review/merge and shared-doc rebase. PR #3 fixes passed; real Lua
+  kanban drawing, keyboard entry, card move and undo pass against this core.
 - Phase 5 Polish: not started.
 - Upstream: issue/discussion not yet opened (do before Phase 2 PR).
 
@@ -66,6 +68,8 @@ Sync the Project copy after merging to `main`.
 - [x] gopher-luar converts Lua tables → `[]string` (`TestDecorationsFromLua` passes).
 
 ## Handoff log (newest first; one or two lines each)
+- 2026-10-12 · Codex (PR #5 fixes) · Fixed hidden-source keyboard access and unwrapped raw-column drift; regression tests, build/race suite and real kanban keyboard/drawing tests pass. Next: Claude re-review, PR #5 merge, then PR #3 rebase/merge.
+- 2026-10-12 · Codex (T4/T5) · Hidden/virtual drawing and vertical movement implemented; standard tests, display/action race checks and real Lua demo runtime pass. Next: independent review/merge, then kanban fixes; installed editor unchanged.
 - 2026-10-12 · Codex (T3) · Row model, scrolling and conceal-aware mapping implemented;
   build/tests/race checks pass. Review, then T4 drawing and T5 cursor movement.
 - 2026-10-12 · chat (Claude) · Reviewed PR #1 (Codex merged it). T6 demo plugins in

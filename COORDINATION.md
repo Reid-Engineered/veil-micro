@@ -19,9 +19,9 @@ Merge to `main` only via small reviewed merges, rebased on `main` first.
 | T0 | Phase 1 recon, plan, API draft, PROJECT.md | recon | — | `PLAN.md`, `docs/API.md`, `COORDINATION.md`, `PROJECT.md` | done | 2026-10-12T12:30-04:00 |
 | T1 | Decoration storage + edit semantics + Buffer API methods | A (Claude, chat) | `agent-a/decorations-core` | `internal/buffer/decorations.go`, `decorations_test.go` (new), `internal/buffer/line_array.go`, `internal/config/settings.go`, `runtime/help/options.md` | **done — merged to main (review waived by Marcus)** | 2026-10-12T12:20-04:00 |
 | T2 | Conceal rendering + reveal-on-cursor + horizontal mapping | Codex (assigned by Marcus) | `agent-codex/conceal-render` | `internal/display/bufwindow.go` (glyph loop, `getStartInfo`, `LocFromVisual`, minimal prerequisite skeleton), `internal/display/conceal.go`, `internal/display/conceal_test.go` (new) | **done — merged to main as PR #1**; T3 integration pending | 2026-10-12T12:42:27-04:00 |
-| T3 | Row model: hidden lines + virtual rows in scroll/diff/mapping | Codex (assigned by Marcus) | `agent-codex/rows` | `internal/display/softwrap.go`, `softwrap_test.go` (new), `bufwindow.go` (`LocFromVisual` delegation only) | done — build/tests pass; awaiting review | 2026-10-12T14:29:58-04:00 |
-| T4 | Virtual-row drawing + gutter | B | `agent-b/vlines-render` | `internal/display/bufwindow.go` (row loop / `wrap()` / gutter helpers, `Relocate`) | blocked by T1, T3 | |
-| T5 | Cursor up/down + mouse over virtual/hidden rows | B | `agent-b/cursor-move` | `internal/action/actions.go` (`MoveCursorUp/Down`, mouse handlers) | blocked by T3 | |
+| T3 | Row model: hidden lines + virtual rows in scroll/diff/mapping | Codex (assigned by Marcus) | `agent-codex/rows` | `internal/display/softwrap.go`, `softwrap_test.go` (new), `bufwindow.go` (`LocFromVisual` delegation only) | **done — merged as PR #4 (`08bfd49d`)** | 2026-10-12T14:29:58-04:00 |
+| T4 | Virtual-row drawing + gutter | Codex (assigned by Marcus) | `agent-codex/vlines-movement` | `internal/display/bufwindow.go` (row loop / gutter / Relocate), `virtual.go`, `virtual_test.go` (new) | done — build/tests/race pass; awaiting independent review | 2026-10-12T14:55-04:00 |
+| T5 | Cursor up/down + mouse over virtual/hidden rows | Codex (assigned by Marcus) | `agent-codex/vlines-movement` | `internal/action/actions.go` (vertical movement / scrolling), `decorations_test.go` (new), `internal/display/softwrap.go` (`CursorScroll`) | done — build/tests/race pass; awaiting independent review | 2026-10-12T14:55-04:00 |
 | T6 | Test plugins (`- [x]`→`✔`, box below a line) | Claude (chat) | `agent-claude/test-plugins` | `plugins/` (new top-level dir: `concealdemo/`, `vlinedemo/`, `install-dev.sh`, `README.md`) | in review (PR) | 2026-10-12T13:41-04:00 |
 | T7 | Kanban plugin | C | `agent-c/kanban` | `runtime/plugins/kanban/` | open (stub against API.md) | |
 | T8 | Docs: help page + fork README | C | `agent-c/docs` | `runtime/help/plugins.md` (append section), `README.fork.md` | open | |
@@ -34,6 +34,9 @@ and adds a hook `w.concealAt(line, x)` returning `nil`. A then implements that h
 Whoever needs a change in the other's region posts a request below.
 
 ## Requests
+- 2026-10-12T15:14-04:00 T5 (Codex): reclaiming own action/display-helper/tests and project notes for Claude PR #5 fixes: single arrows enter hidden source at logical-line boundaries, and unwrapped destination columns use raw text. No plugin/Lua API changes.
+- 2026-10-12T15:04-04:00 Codex: also claiming a temporary `cmd/micro/t45_runtime_test.go` runtime harness for T4/T5 validation only; it will be removed before commit.
+- 2026-10-12T14:55-04:00 Codex: Marcus assigned T4 and T5 together. Claiming their listed drawing/action regions, new display/action tests, and supporting generic display movement helpers in `softwrap.go` (T3 is merged/released). No Lua API or plugin edits.
 - T3 -> T4/T5 handoff: `getTextRowCount(line)` excludes hidden text;
   `getVirtualRowCount(line)` includes only unsuppressed virtual blocks;
   `getRowCount` is their sum. Text rows precede virtual rows, including the
@@ -78,6 +81,8 @@ Whoever needs a change in the other's region posts a request below.
 _(none)_
 
 ## Log
+- 2026-10-12T15:16-04:00 T5 review fixes (Codex): reproduced Claude PR #5 P1/P2. Single arrows now enter hidden source and reveal it, only after crossing the current wrapped logical-line boundary; page-distance moves still skip hidden/virtual rows. Unwrapped destination X uses raw text and LastVisualX; wrapped moves retain current-layout mapping before reveal, which can reflow. Regression tests cover both directions, hidden EOF/group entry, selection, wrapped boundaries, checklists and Unicode/tabs. Real PR #3 Lua kanban keyboard entry/card move/undo and drawing pass against the fixed core in both wrap modes. Build, standard tests, display/action race pass. Awaiting Claude re-review before PR #5 and then PR #3 merge. No installed changes.
+- 2026-10-12T15:02:41-04:00 T4/T5 (Codex): hidden text now takes zero drawn rows; virtual blocks draw in row-model order with blank gutters, styles, Unicode/tab clipping and offsets in either wrap mode. Cursor arrows/page/selection skip synthetic rows and hidden lines; mouse mapping reveals source anchors. Fixed offscreen text clearing into adjacent split and EOF scrolling with trailing virtual rows. `make build`, `make test`, uncached display/action race tests and real Lua vlinedemo runtime pass. 13 new tests include 40 flattened-row scrolling comparisons. Interface and Buffer/Lua APIs unchanged; `CursorScroll` is an optional display helper. Independent review required; no installed editor/plugins changed.
 - 2026-10-12T14:39:36-04:00 T3 (Codex): implemented hidden/virtual row counts,
   zero-row-safe Scroll/Diff, stale-location normalization, and conceal-aware
   wrapped/unwrapped source/visual mapping using T2's shared glyph sequence.
