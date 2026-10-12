@@ -70,6 +70,8 @@ Sync the Project copy after merging to `main`.
 ## Handoff log (newest first; one or two lines each)
 - 2026-10-12 · Codex (PR #5 fixes) · Fixed hidden-source keyboard access and unwrapped raw-column drift; regression tests, build/race suite and real kanban keyboard/drawing tests pass. Next: Claude re-review, PR #5 merge, then PR #3 rebase/merge.
 - 2026-10-12 · Codex (T4/T5) · Hidden/virtual drawing and vertical movement implemented; standard tests, display/action race checks and real Lua demo runtime pass. Next: independent review/merge, then kanban fixes; installed editor unchanged.
+- 2026-10-12 · chat (Claude) · T7 kanban plugin opened as PR (parser, layout, moves, toggle,
+  spec tests via `go test ./plugins/...`). Codex on T3. Next: review T7; T4/T5 after T3.
 - 2026-10-12 · Codex (T3) · Row model, scrolling and conceal-aware mapping implemented;
   build/tests/race checks pass. Review, then T4 drawing and T5 cursor movement.
 - 2026-10-12 · chat (Claude) · Reviewed PR #1 (Codex merged it). T6 demo plugins in
