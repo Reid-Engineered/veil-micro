@@ -52,13 +52,10 @@ Sync the Project copy after merging to `main`.
 ## Status
 - Phase 1 Recon: **done** (2026-10-12).
 - Phase 2 Conceal: T1, T2 (PR #1) and T3 row model (PR #4) **merged**.
-- Phase 3 Virtual lines: T4 drawing and T5 vertical cursor/mouse integration
-  implemented on `agent-codex/vlines-movement`, build/tests/race checks pass;
-  PR #5 review fixes implemented and tested; awaiting re-review. Single arrows
-  enter hidden source to reveal it; virtual rows cannot hold a cursor.
-- Phase 4 Kanban plugin: T6 demos merged as PR #2; T7 kanban PR #3 awaits
-  T4/T5 re-review/merge and shared-doc rebase. PR #3 fixes passed; real Lua
-  kanban drawing, keyboard entry, card move and undo pass against this core.
+- Phase 3 Virtual lines: T4 drawing + T5 vertical movement **merged** (PR #5). Single arrows
+  enter hidden source (revealing it); virtual rows can't hold a cursor.
+- Phase 4 Kanban plugin: T6 demos (PR #2) and **T7 kanban plugin (PR #3) merged**. Boards draw,
+  arrows enter them, Alt-l/Alt-h/Alt-t move/toggle cards as one undo step.
 - Phase 5 Polish: not started.
 - Upstream: issue/discussion not yet opened (do before Phase 2 PR).
 
@@ -68,6 +65,8 @@ Sync the Project copy after merging to `main`.
 - [x] gopher-luar converts Lua tables → `[]string` (`TestDecorationsFromLua` passes).
 
 ## Handoff log (newest first; one or two lines each)
+- 2026-10-12 · chat (Claude) · Rebased + merged PR #3 (kanban) after PR #5. Phases 2-4 done.
+  Next: Phase 5 polish (wide chars, resize redraw, README, upstream discussion), T8 docs.
 - 2026-10-12 · Codex (PR #5 fixes) · Fixed hidden-source keyboard access and unwrapped raw-column drift; regression tests, build/race suite and real kanban keyboard/drawing tests pass. Next: Claude re-review, PR #5 merge, then PR #3 rebase/merge.
 - 2026-10-12 · Codex (T4/T5) · Hidden/virtual drawing and vertical movement implemented; standard tests, display/action race checks and real Lua demo runtime pass. Next: independent review/merge, then kanban fixes; installed editor unchanged.
 - 2026-10-12 · chat (Claude) · T7 kanban plugin opened as PR (parser, layout, moves, toggle,
