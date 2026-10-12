@@ -359,6 +359,25 @@ func (w *BufWindow) drawLineNum(lineNumStyle tcell.Style, softwrapped bool, vloc
 	}
 }
 
+// drawRowGutter draws the common first/wrapped-row skeleton. T4 can reuse it
+// when extending the row loop; virtual rows keep a separate blank gutter.
+func (w *BufWindow) drawRowGutter(style tcell.Style, wrapped bool, vloc, bloc *buffer.Loc) {
+	vloc.X = 0
+	if vloc.Y < 0 {
+		vloc.X = w.gutterOffset
+		return
+	}
+	if w.hasMessage {
+		w.drawGutter(vloc, bloc)
+	}
+	if w.Buf.Settings["diffgutter"].(bool) {
+		w.drawDiffGutter(style, wrapped, vloc, bloc)
+	}
+	if w.Buf.Settings["ruler"].(bool) {
+		w.drawLineNum(style, wrapped, vloc, bloc)
+	}
+}
+
 // getStyle returns the highlight style for the given character position
 // If there is no change to the current highlight style it just returns that
 func (w *BufWindow) getStyle(style tcell.Style, bloc buffer.Loc) (tcell.Style, bool) {
@@ -491,21 +510,7 @@ func (w *BufWindow) displayBuffer() {
 			s = curNumStyle
 		}
 
-		if vloc.Y >= 0 {
-			if w.hasMessage {
-				w.drawGutter(&vloc, &bloc)
-			}
-
-			if b.Settings["diffgutter"].(bool) {
-				w.drawDiffGutter(s, false, &vloc, &bloc)
-			}
-
-			if b.Settings["ruler"].(bool) {
-				w.drawLineNum(s, false, &vloc, &bloc)
-			}
-		} else {
-			vloc.X = w.gutterOffset
-		}
+		w.drawRowGutter(s, false, &vloc, &bloc)
 
 		bline := b.LineBytes(bloc.Y)
 		blineLen := util.CharacterCount(bline)
@@ -687,23 +692,7 @@ func (w *BufWindow) displayBuffer() {
 		}
 
 		wrap := func() {
-			vloc.X = 0
-
-			if vloc.Y >= 0 {
-				if w.hasMessage {
-					w.drawGutter(&vloc, &bloc)
-				}
-				if b.Settings["diffgutter"].(bool) {
-					w.drawDiffGutter(lineNumStyle, true, &vloc, &bloc)
-				}
-
-				// This will draw an empty line number because the current line is wrapped
-				if b.Settings["ruler"].(bool) {
-					w.drawLineNum(lineNumStyle, true, &vloc, &bloc)
-				}
-			} else {
-				vloc.X = w.gutterOffset
-			}
+			w.drawRowGutter(lineNumStyle, true, &vloc, &bloc)
 		}
 
 		type glyph struct {

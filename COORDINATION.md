@@ -18,7 +18,7 @@ Merge to `main` only via small reviewed merges, rebased on `main` first.
 |----|------|-------|--------|---------------|--------|---------|
 | T0 | Phase 1 recon, plan, API draft, PROJECT.md | recon | — | `PLAN.md`, `docs/API.md`, `COORDINATION.md`, `PROJECT.md` | done | 2026-10-12T12:30-04:00 |
 | T1 | Decoration storage + edit semantics + Buffer API methods | A (Claude, chat) | `agent-a/decorations-core` | `internal/buffer/decorations.go`, `decorations_test.go` (new), `internal/buffer/line_array.go`, `internal/config/settings.go`, `runtime/help/options.md` | **done — merged to main (review waived by Marcus)** | 2026-10-12T12:20-04:00 |
-| T2 | Conceal rendering + reveal-on-cursor + horizontal mapping | A | `agent-a/conceal-render` | `internal/display/bufwindow.go` (`displayBuffer` glyph loop, `getStartInfo`), `internal/display/conceal.go` (new) | open | |
+| T2 | Conceal rendering + reveal-on-cursor + horizontal mapping | Codex (assigned by Marcus) | `agent-codex/conceal-render` | `internal/display/bufwindow.go` (glyph loop, `getStartInfo`, `LocFromVisual`, minimal prerequisite skeleton), `internal/display/conceal.go`, `internal/display/conceal_test.go` (new) | in progress | 2026-10-12T12:42:27-04:00 |
 | T3 | Row model: hidden lines + virtual rows in scroll/diff/mapping | B | `agent-b/rows` | `internal/display/softwrap.go` | open | |
 | T4 | Virtual-row drawing + gutter | B | `agent-b/vlines-render` | `internal/display/bufwindow.go` (row loop / `wrap()` / gutter helpers, `Relocate`) | blocked by T1, T3 | |
 | T5 | Cursor up/down + mouse over virtual/hidden rows | B | `agent-b/cursor-move` | `internal/action/actions.go` (`MoveCursorUp/Down`, mouse handlers) | blocked by T3 | |
@@ -34,7 +34,10 @@ and adds a hook `w.concealAt(line, x)` returning `nil`. A then implements that h
 Whoever needs a change in the other's region posts a request below.
 
 ## Requests
-_(none)_
+- 2026-10-12T12:42:27-04:00 T2 (Codex): Marcus authorized preparing the minimal T4
+  drawing skeleton prerequisite for T2. No virtual-row implementation or changes
+  to B's `softwrap.go`, `Relocate`, gutter or action ownership are claimed.
+  Shared conceal iterator/width helpers will be provided for T3/T4.
 
 ## API changes
 - 2026-10-12 v0.2 (approved by Marcus): rune columns confirmed; `ConcealLines` confirmed;
