@@ -34,6 +34,7 @@ and adds a hook `w.concealAt(line, x)` returning `nil`. A then implements that h
 Whoever needs a change in the other's region posts a request below.
 
 ## Requests
+- 2026-10-12T15:14-04:00 T5 (Codex): reclaiming own action/display-helper/tests and project notes for Claude PR #5 fixes: single arrows enter hidden source at logical-line boundaries, and unwrapped destination columns use raw text. No plugin/Lua API changes.
 - 2026-10-12T15:04-04:00 Codex: also claiming a temporary `cmd/micro/t45_runtime_test.go` runtime harness for T4/T5 validation only; it will be removed before commit.
 - 2026-10-12T14:55-04:00 Codex: Marcus assigned T4 and T5 together. Claiming their listed drawing/action regions, new display/action tests, and supporting generic display movement helpers in `softwrap.go` (T3 is merged/released). No Lua API or plugin edits.
 - T3 -> T4/T5 handoff: `getTextRowCount(line)` excludes hidden text;
@@ -80,6 +81,7 @@ Whoever needs a change in the other's region posts a request below.
 _(none)_
 
 ## Log
+- 2026-10-12T15:16-04:00 T5 review fixes (Codex): reproduced Claude PR #5 P1/P2. Single arrows now enter hidden source and reveal it, only after crossing the current wrapped logical-line boundary; page-distance moves still skip hidden/virtual rows. Unwrapped destination X uses raw text and LastVisualX; wrapped moves retain current-layout mapping before reveal, which can reflow. Regression tests cover both directions, hidden EOF/group entry, selection, wrapped boundaries, checklists and Unicode/tabs. Real PR #3 Lua kanban keyboard entry/card move/undo and drawing pass against the fixed core in both wrap modes. Build, standard tests, display/action race pass. Awaiting Claude re-review before PR #5 and then PR #3 merge. No installed changes.
 - 2026-10-12T15:02:41-04:00 T4/T5 (Codex): hidden text now takes zero drawn rows; virtual blocks draw in row-model order with blank gutters, styles, Unicode/tab clipping and offsets in either wrap mode. Cursor arrows/page/selection skip synthetic rows and hidden lines; mouse mapping reveals source anchors. Fixed offscreen text clearing into adjacent split and EOF scrolling with trailing virtual rows. `make build`, `make test`, uncached display/action race tests and real Lua vlinedemo runtime pass. 13 new tests include 40 flattened-row scrolling comparisons. Interface and Buffer/Lua APIs unchanged; `CursorScroll` is an optional display helper. Independent review required; no installed editor/plugins changed.
 - 2026-10-12T14:39:36-04:00 T3 (Codex): implemented hidden/virtual row counts,
   zero-row-safe Scroll/Diff, stale-location normalization, and conceal-aware

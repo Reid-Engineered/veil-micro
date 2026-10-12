@@ -63,31 +63,36 @@ func TestDecoratedVerticalActions(t *testing.T) {
 			h.Buf.SetVirtualLines(4, []string{"tail1", "tail2"}, "v")
 			h.Cursor.GotoLoc(buffer.Loc{X: 2, Y: 1})
 			h.MoveCursorDown(1)
+			if h.Cursor.Loc != (buffer.Loc{X: 2, Y: 2}) {
+				t.Fatal("enter hidden", h.Cursor.Loc)
+			}
+			h.MoveCursorDown(1)
 			if h.Cursor.Loc != (buffer.Loc{X: 2, Y: 3}) {
-				t.Fatal("down", h.Cursor.Loc)
+				t.Fatal("exit revealed", h.Cursor.Loc)
+			}
+			h.MoveCursorUp(1)
+			if h.Cursor.Loc != (buffer.Loc{X: 2, Y: 2}) {
+				t.Fatal("enter hidden upwards", h.Cursor.Loc)
 			}
 			h.MoveCursorUp(1)
 			if h.Cursor.Loc != (buffer.Loc{X: 2, Y: 1}) {
-				t.Fatal("up", h.Cursor.Loc)
+				t.Fatal("up past virtual", h.Cursor.Loc)
+			}
+			h.Cursor.GotoLoc(buffer.Loc{X: 2, Y: 3})
+			h.MoveCursorDown(1)
+			if h.Cursor.Loc != (buffer.Loc{X: 2, Y: 4}) {
+				t.Fatal("hidden EOF entry", h.Cursor.Loc)
 			}
 			h.MoveCursorDown(1)
-			h.MoveCursorDown(1)
-			if h.Cursor.Loc != (buffer.Loc{X: 4, Y: 3}) {
-				t.Fatal("hidden EOF", h.Cursor.Loc)
-			}
-			h.MoveCursorDown(1)
-			if h.Cursor.Y != 3 {
-				t.Fatal("moved into hidden EOF")
+			if h.Cursor.Loc != (buffer.Loc{X: 4, Y: 4}) {
+				t.Fatal("EOF", h.Cursor.Loc)
 			}
 			h.Cursor.GotoLoc(buffer.Loc{X: 2})
 			h.MoveCursorDown(3)
 			if h.Cursor.Y != 3 {
-				t.Fatal("page into virtual row", h.Cursor.Loc)
+				t.Fatal("page virtual skip", h.Cursor.Loc)
 			}
 			h.MoveCursorUp(10)
-			if h.Cursor.Y != 0 {
-				t.Fatal(h.Cursor.Loc)
-			}
 			h.MoveCursorUp(1)
 			if h.Cursor.Loc != (buffer.Loc{}) {
 				t.Fatal(h.Cursor.Loc)
@@ -181,6 +186,10 @@ func TestDecoratedKeyboardSelectionRevealsSource(t *testing.T) {
 	h.Buf.SetVirtualLines(1, []string{"v1", "v2"}, "v")
 	h.Cursor.GotoLoc(buffer.Loc{X: 2})
 	h.SelectDown()
+	if h.Cursor.Loc != (buffer.Loc{X: 2, Y: 1}) {
+		t.Fatal("selection enters hidden source", h.Cursor.Loc)
+	}
+	h.SelectDown()
 	if h.Cursor.Loc != (buffer.Loc{X: 2, Y: 2}) || !h.Cursor.HasSelection() {
 		t.Fatal(h.Cursor.Loc)
 	}
@@ -188,5 +197,70 @@ func TestDecoratedKeyboardSelectionRevealsSource(t *testing.T) {
 	h.SelectUp()
 	if h.Cursor.Loc != (buffer.Loc{X: 2, Y: 1}) {
 		t.Fatal(h.Cursor.Loc)
+	}
+}
+
+func TestConcealedDestinationPreservesRawColumn(t *testing.T) {
+	for _, text := range []string{"- [x] build micro-dev\n- [ ] open this file", "界\tbuild\n界\tHIDDENopen"} {
+		h := decorationPane(t, text, false)
+		if text[0] == '-' {
+			h.Buf.AddConceal(1, 0, 5, "☐", "", "g")
+		} else {
+			h.Buf.AddConceal(1, 2, 8, "X", "", "g")
+		}
+		h.Cursor.GotoLoc(buffer.Loc{X: 6})
+		h.MoveCursorDown(1)
+		if h.Cursor.Loc != (buffer.Loc{X: 6, Y: 1}) {
+			t.Fatal("raw column shifted", h.Cursor.Loc)
+		}
+		h.MoveCursorUp(1)
+		if h.Cursor.Loc != (buffer.Loc{X: 6}) {
+			t.Fatal("return column shifted", h.Cursor.Loc)
+		}
+	}
+}
+
+func TestHiddenEntryWaitsForWrappedLineBoundary(t *testing.T) {
+	h := decorationPane(t, "abcdefghijkl\nhidden\nnext", true)
+	h.Buf.ConcealLines(1, 1, "board")
+	h.Buf.SetVirtualLines(1, []string{"board"}, "board")
+	h.Cursor.GotoLoc(buffer.Loc{X: 2})
+	h.MoveCursorDown(1)
+	if h.Cursor.Loc != (buffer.Loc{X: 10}) {
+		t.Fatal("skipped remaining wrapped text", h.Cursor.Loc)
+	}
+	h.MoveCursorDown(1)
+	if h.Cursor.Y != 1 {
+		t.Fatal("hidden source inaccessible", h.Cursor.Loc)
+	}
+	h.MoveCursorDown(1)
+	if h.Cursor.Y != 2 {
+		t.Fatal(h.Cursor.Loc)
+	}
+	h.MoveCursorUp(1)
+	if h.Cursor.Y != 1 {
+		t.Fatal("hidden source inaccessible upwards", h.Cursor.Loc)
+	}
+}
+
+func TestHiddenGroupKeyboardEntryAndExit(t *testing.T) {
+	for _, wrap := range []bool{false, true} {
+		h := decorationPane(t, "start\nanchor\ncard\nnext", wrap)
+		h.Buf.ConcealLines(1, 2, "board")
+		h.Buf.SetVirtualLines(1, []string{"board1", "board2"}, "board")
+		h.Buf.SetRevealMode("board", "group")
+		h.Cursor.GotoLoc(buffer.Loc{X: 2})
+		for _, y := range []int{1, 2, 3} {
+			h.CursorDown()
+			if h.Cursor.Y != y {
+				t.Fatal("keyboard board entry/exit", h.Cursor.Loc)
+			}
+		}
+		for _, y := range []int{2, 1, 0} {
+			h.CursorUp()
+			if h.Cursor.Y != y {
+				t.Fatal("keyboard board return", h.Cursor.Loc)
+			}
+		}
 	}
 }

@@ -225,9 +225,33 @@ func (h *BufPane) cursorScroll(s display.SLoc, n int) display.SLoc {
 	return h.Scroll(s, n)
 }
 
+// enterHiddenLine allows a single arrow to reveal adjacent hidden source.
+// The display helper checks logical-line boundaries when softwrap is enabled.
+func (h *BufPane) enterHiddenLine(direction int) bool {
+	if w, ok := h.BWindow.(interface{ HiddenCursorStep(buffer.Loc, int) bool }); ok && w.HiddenCursorStep(h.Cursor.Loc, direction) {
+		h.Cursor.UpN(-direction)
+		return true
+	}
+	return false
+}
+
+// setVerticalTarget uses raw columns without softwrap because cursor entry
+// reveals the destination. Wrapped targets use the current displayed layout;
+// revealing that line/group may then change its wrapping.
+func (h *BufPane) setVerticalTarget(vloc display.VLoc) {
+	if !h.Buf.Settings["softwrap"].(bool) {
+		tabsize := util.IntOpt(h.Buf.Settings["tabsize"])
+		x := util.GetCharPosInLine(h.Buf.LineBytes(vloc.Line), h.Cursor.LastVisualX, tabsize)
+		h.Cursor.Loc = buffer.Loc{X: x, Y: vloc.Line}
+	} else {
+		vloc.VisualX = h.Cursor.LastWrappedVisualX
+		h.Cursor.Loc = h.LocFromVLoc(vloc)
+	}
+}
+
 // MoveCursorUp is not an action
 func (h *BufPane) MoveCursorUp(n int) {
-	if n == 0 {
+	if n == 0 || h.enterHiddenLine(-n) {
 		return
 	}
 	if !h.Buf.Settings["softwrap"].(bool) && !(h.Buf.Settings["conceal"].(bool) && h.Buf.HasDecorations()) {
@@ -241,18 +265,14 @@ func (h *BufPane) MoveCursorUp(n int) {
 			h.Cursor.StoreVisualX()
 		} else {
 			vloc.SLoc = sloc
-			vloc.VisualX = h.Cursor.LastWrappedVisualX
-			if !h.Buf.Settings["softwrap"].(bool) {
-				vloc.VisualX = h.Cursor.LastVisualX
-			}
-			h.Cursor.Loc = h.LocFromVLoc(vloc)
+			h.setVerticalTarget(vloc)
 		}
 	}
 }
 
 // MoveCursorDown is not an action
 func (h *BufPane) MoveCursorDown(n int) {
-	if n == 0 {
+	if n == 0 || h.enterHiddenLine(n) {
 		return
 	}
 	if !h.Buf.Settings["softwrap"].(bool) && !(h.Buf.Settings["conceal"].(bool) && h.Buf.HasDecorations()) {
@@ -266,11 +286,7 @@ func (h *BufPane) MoveCursorDown(n int) {
 			h.Cursor.StoreVisualX()
 		} else {
 			vloc.SLoc = sloc
-			vloc.VisualX = h.Cursor.LastWrappedVisualX
-			if !h.Buf.Settings["softwrap"].(bool) {
-				vloc.VisualX = h.Cursor.LastVisualX
-			}
-			h.Cursor.Loc = h.LocFromVLoc(vloc)
+			h.setVerticalTarget(vloc)
 		}
 	}
 }

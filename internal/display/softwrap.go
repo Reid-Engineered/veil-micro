@@ -578,3 +578,26 @@ func (w *BufWindow) CursorScroll(s SLoc, n int) SLoc {
 	}
 	return s
 }
+
+// HiddenCursorStep reports whether a single arrow should enter adjacent hidden
+// source text, which reveals on cursor entry. Wrapped rows of the current line
+// must be traversed first; virtual rows never prevent entering the source line.
+func (w *BufWindow) HiddenCursorStep(loc buffer.Loc, direction int) bool {
+	if direction != -1 && direction != 1 {
+		return false
+	}
+	done := w.beginRowModel()
+	defer done()
+	next := loc.Y + direction
+	if next < 0 || next >= w.Buf.LinesNum() || !w.lineHidden(next) {
+		return false
+	}
+	if !w.Buf.Settings["softwrap"].(bool) {
+		return true
+	}
+	row := w.VLocFromLoc(loc).Row
+	if direction < 0 {
+		return row == 0
+	}
+	return row == w.getTextRowCount(loc.Y)-1
+}
