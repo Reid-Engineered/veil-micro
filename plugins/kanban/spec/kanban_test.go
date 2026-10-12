@@ -41,6 +41,18 @@ func TestKanbanSpec(t *testing.T) {
 	}
 }
 
+// TestKanbanGlueSpec runs kanban_glue_spec.lua, which drives the plugin's
+// micro-facing callbacks (startup order, bindings, `set kanban.margin`,
+// deinit, filetype changes) against stand-in micro modules.
+func TestKanbanGlueSpec(t *testing.T) {
+	L := lua.NewState()
+	defer L.Close()
+	L.SetGlobal("PLUGIN_SRC", lua.LString(pluginSource(t)))
+	if err := L.DoFile("kanban_glue_spec.lua"); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // pluginOn loads the plugin's pure functions (it returns before the micro glue
 // because `import` is nil) and exposes a real micro buffer as `buf`.
 func pluginOn(t *testing.T, b *buffer.Buffer) *lua.LState {

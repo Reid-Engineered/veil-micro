@@ -84,6 +84,10 @@ Whoever needs a change in the other's region posts a request below.
 _(none)_
 
 ## Log
+- 2026-10-12T17:50-04:00 Reveal margin (Claude, chat): fixed Codex's PR #7 P2. `set kanban.margin N`
+  now redraws open boards (micro calls onBufferOptionChanged per buffer after a global set).
+  New `spec/kanban_glue_spec.lua` drives the plugin glue with stand-in micro modules (startup
+  order, bindings, margin change, deinit, filetype, keys off); it fails on 06af01a6 and passes now.
 - 2026-10-12T17:45-04:00 Reveal margin (Claude, chat, branch `agent-claude/reveal-margin`, stacked
   on PR #6): touches `internal/buffer/decorations.go`, `line_array.go` (fields), and T2's
   `internal/display/conceal.go` (`computeDecorationReveal` only; T2 is merged/done) plus tests,

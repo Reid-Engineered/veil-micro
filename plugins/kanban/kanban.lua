@@ -816,6 +816,12 @@ function onBufferOpen(buf)
 end
 
 function onBufferOptionChanged(buf, option, old, new)
+    -- `set kanban.margin N` updates the global value, then calls this for every
+    -- open buffer: redraw so existing boards pick up the new margin now.
+    if option == "kanban.margin" then
+        enableFor(buf)
+        return
+    end
     if option ~= "filetype" then
         return
     end
